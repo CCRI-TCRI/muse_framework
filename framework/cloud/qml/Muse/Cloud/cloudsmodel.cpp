@@ -182,7 +182,7 @@ QVariant CloudsModel::dialogText(const QString& cloudCode, const QString& existi
     QVariantMap dialogTextMap;
 
     if (cloudCode == cloud::MUSESCORE_COM_CLOUD_CODE) {
-        dialogTextMap[prv::DIALOG_TITLE_TEXT] = muse::qtrc("project/save", "Publish to MuseScore.com");
+        dialogTextMap[prv::DIALOG_TITLE_TEXT] = muse::qtrc("project/save", "Publish to Sincrest");
 
         if (!existingScoreOrAudioUrl.isEmpty()) {
             //: The text between `<a href=\"%1\">` and `</a>` will be a clickable link to the online score in question

@@ -38,9 +38,9 @@ using namespace muse::cloud;
 using namespace muse::network;
 using namespace muse::async;
 
-static const QString MUSESCORECOM_CLOUD_TITLE("MuseScore.com");
-static const QString MUSESCORECOM_CLOUD_URL("https://musescore.com");
-static const QString MUSESCORECOM_API_ROOT_URL("https://desktop.musescore.com/editor/v1");
+static const QString MUSESCORECOM_CLOUD_TITLE("Sincrest");
+static const QString MUSESCORECOM_CLOUD_URL("");
+static const QString MUSESCORECOM_API_ROOT_URL("");
 static const QUrl MUSESCORECOM_SCORE_MANAGER_URL(MUSESCORECOM_CLOUD_URL + "/my-scores");
 static const QUrl MUSESCORECOM_USER_INFO_API_URL(MUSESCORECOM_API_ROOT_URL + "/me");
 
@@ -51,7 +51,7 @@ static const QUrl MUSESCORECOM_SCORE_DOWNLOAD_SHARED_API_URL(MUSESCORECOM_API_RO
 static const QUrl MUSESCORECOM_UPLOAD_SCORE_API_URL(MUSESCORECOM_API_ROOT_URL + "/score/upload");
 static const QUrl MUSESCORECOM_UPLOAD_AUDIO_API_URL(MUSESCORECOM_API_ROOT_URL + "/score/audio");
 
-static const QString MUSESCORE_TEXT_LOGO("https://musescore.com/static/public/musescore/img/logo/musescore-logo.svg");
+static const QString MUSESCORE_TEXT_LOGO("");
 
 static const QString SCORE_ID_KEY("score_id");
 static const QString EDITOR_SOURCE_KEY("editor_source");
