@@ -323,6 +323,7 @@ const Store = (() => {
       <nav class="bottom-nav glass" id="tabbar" aria-label="Main">
         <a data-tab href="/" class="${on('home')}">${icon('home')}<span>Home</span></a>
         <a data-tab href="/shop" class="${on('shop')}">${icon('search')}<span>Search</span></a>
+        <a data-tab href="/live" class="${on('live')}" data-live-link>${icon('live')}<span>Live</span></a>
         <a data-tab href="/shop?saved=1" class="${on('saved')}">${icon('heart')}<span>Saved</span></a>
         <a data-tab href="/orders" class="${on('orders')}">${icon('user')}<span>Orders</span></a>
         <span class="lens" aria-hidden="true"><span class="lens-track"></span></span>

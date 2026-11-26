@@ -787,3 +787,6 @@ html.show-splash .splash { display: grid; }
 @media (min-width: 861px) {
   .lens { display: none; }
 }
+@media (max-width: 860px) {
+  .bottom-nav.glass a .live-dot { position: absolute; top: 11px; left: calc(50% + 8px); right: auto; margin: 0; width: 8px; height: 8px; box-shadow: 0 0 0 2px rgba(255,255,255,.9); }
+}

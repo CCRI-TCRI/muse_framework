@@ -112,7 +112,7 @@
       const fBar = makeFilter('lg-bar'), fLens = makeFilter('lg-lens');
       svg.append(fBar, fLens);
       document.body.append(svg);
-      const refresh = () => { updateFilter(fBar, bar, 22, 46); updateFilter(fLens, lens, 11, 16, 1.16); };
+      const refresh = () => { updateFilter(fBar, bar, 20, 34); updateFilter(fLens, lens, 9, 12, 1.15); };
       refresh();
       new ResizeObserver(refresh).observe(bar);
       new ResizeObserver(refresh).observe(lens);
