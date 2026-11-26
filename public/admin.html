@@ -92,10 +92,11 @@
             </div>
             <label class="field"><span>Description</span><textarea name="description" maxlength="4000"></textarea></label>
             <label class="field"><span>Fabric and care, one point per line</span><textarea name="details" maxlength="2000" placeholder="100% cotton&#10;Hand wash cold&#10;Made in Uganda"></textarea></label>
-            <div class="field">
-              <span>Photos (the first is the cover, the second shows on hover)</span>
+            <div class="field" id="photos-field">
+              <span>Photos. The cover is the one shown in the shop; the second appears when someone hovers on a computer.</span>
               <div class="image-list" id="image-list"></div>
-              <label class="upload-drop"><input type="file" id="image-input" accept="image/jpeg,image/png,image/webp,image/avif" multiple hidden><span data-icon="image"></span>Add photos</label>
+              <label class="upload-drop" id="add-photos"><input type="file" id="image-input" accept="image/jpeg,image/png,image/webp,image/avif" multiple hidden><span data-icon="image"></span><span id="add-photos-label">Add photos</span></label>
+              <input type="file" id="replace-input" accept="image/jpeg,image/png,image/webp,image/avif" hidden>
               <div class="progress hidden" id="image-progress"><div></div></div>
             </div>
             <div class="row2">
@@ -103,12 +104,16 @@
               <label class="check" style="align-self:end;padding-bottom:14px"><input type="checkbox" name="active" checked> Show in shop</label>
             </div>
             <div class="note err hidden" id="product-error"></div>
-            <div><button class="btn" id="save-product">Save product</button></div>
+            <div class="form-save">
+              <span class="small hidden" id="unsaved">Unsaved changes</span>
+              <button type="button" class="btn danger hidden" id="delete-in-form">Delete product</button>
+              <button class="btn" id="save-product">Save product</button>
+            </div>
           </form>
         </div>
         <div class="box">
-          <div class="box-head"><h2>All products</h2><input id="product-search" class="mini-search" placeholder="Search products"></div>
-          <div class="scroll-x"><table class="table" id="product-table"></table></div>
+          <div class="box-head"><h2>All products <span class="muted small" id="product-count" style="font-weight:400"></span></h2><input id="product-search" class="mini-search" placeholder="Search products"></div>
+          <div class="plist" id="product-table"></div>
         </div>
       </section>
 
@@ -219,6 +224,7 @@
     </main>
   </div>
 
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
   <script src="/js/common.js"></script>
   <script src="/js/whatsapp-icon.js"></script>
   <script src="/js/admin.js"></script>

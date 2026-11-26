@@ -258,36 +258,80 @@ const Admin = (() => {
     $('product-box').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  function drawImages() {
-    $('image-list').innerHTML = images.map((url, i) => `
-      <div class="item">${art({ name: '', images: [url] })}
-        ${i === 0 ? '<span class="first">Cover</span>' : ''}
-        <button type="button" data-remove-image="${i}" aria-label="Remove photo">&times;</button>
-      </div>`).join('');
+  // Photo manager: replace, make cover, move, remove, add.
+  let dirty = false;
+  function markDirty(on = true) {
+    dirty = on;
+    $('unsaved').classList.toggle('hidden', !on);
   }
 
+  function drawImages() {
+    const n = images.length;
+    $('image-list').innerHTML = images.map((url, i) => `
+      <figure class="photo">
+        <div class="photo-pic">${art({ name: '', images: [url] })}${i === 0 ? '<span class="first">Cover</span>' : ''}</div>
+        <figcaption>
+          <button type="button" class="pa" data-photo="replace" data-i="${i}">Replace</button>
+          ${i > 0 ? `<button type="button" class="pa" data-photo="cover" data-i="${i}">Make cover</button>` : ''}
+          <span class="pa-row">
+            <button type="button" class="pa sq" data-photo="left" data-i="${i}" ${i === 0 ? 'disabled' : ''} aria-label="Move left">&larr;</button>
+            <button type="button" class="pa sq" data-photo="right" data-i="${i}" ${i === n - 1 ? 'disabled' : ''} aria-label="Move right">&rarr;</button>
+            <button type="button" class="pa sq del" data-photo="remove" data-i="${i}" aria-label="Remove photo">&times;</button>
+          </span>
+        </figcaption>
+      </figure>`).join('') || '<p class="small muted" style="margin:0">No photos yet. Until you add one, the shop shows a drawing in the garment colour below.</p>';
+    $('add-photos-label').textContent = n ? `Add more photos (${n} of 8)` : 'Add photos';
+    $('add-photos').classList.toggle('hidden', n >= 8);
+  }
+
+  let replacing = -1;
   $('image-list').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-remove-image]');
+    const b = e.target.closest('[data-photo]');
     if (!b) return;
-    images.splice(Number(b.dataset.removeImage), 1);
+    const i = Number(b.dataset.i);
+    const act = b.dataset.photo;
+    if (act === 'replace') { replacing = i; $('replace-input').click(); return; }
+    if (act === 'remove') {
+      if (!confirm('Remove this photo from the product?')) return;
+      images.splice(i, 1);
+    }
+    if (act === 'cover') images.unshift(images.splice(i, 1)[0]);
+    if (act === 'left' && i > 0) [images[i - 1], images[i]] = [images[i], images[i - 1]];
+    if (act === 'right' && i < images.length - 1) [images[i + 1], images[i]] = [images[i], images[i + 1]];
     drawImages();
+    markDirty();
   });
 
-  $('image-input').addEventListener('change', async (e) => {
+  async function withUpload(fn) {
+    $('save-product').disabled = true;
+    $('product-error').classList.add('hidden');
+    try { await fn(); } catch (err) { showError($('product-error'), err); } finally { $('save-product').disabled = false; }
+  }
+
+  $('replace-input').addEventListener('change', (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file || replacing < 0) return;
+    const i = replacing;
+    replacing = -1;
+    withUpload(async () => {
+      images[i] = await uploadFile(file, 'products', $('image-progress'));
+      drawImages();
+      markDirty();
+    });
+  });
+
+  $('image-input').addEventListener('change', (e) => {
     const files = [...e.target.files];
     e.target.value = '';
-    $('save-product').disabled = true;
-    try {
+    withUpload(async () => {
       for (const f of files) {
         if (images.length >= 8) break;
         images.push(await uploadFile(f, 'products', $('image-progress')));
         drawImages();
+        markDirty();
       }
-    } catch (err) {
-      showError($('product-error'), err);
-    } finally {
-      $('save-product').disabled = false;
-    }
+    });
   });
 
   async function loadProducts() {
@@ -301,19 +345,22 @@ const Admin = (() => {
   function drawProductTable() {
     const q = $('product-search').value.trim().toLowerCase();
     const list = products.filter((p) => !q || `${p.name} ${p.category}`.toLowerCase().includes(q));
-    $('product-table').innerHTML = `<tr><th></th><th>Piece</th><th>Price</th><th>Stock</th><th>Sizes</th><th></th></tr>` +
-      (list.map((p) => `
-        <tr>
-          <td><div class="thumb" style="--tint:${tint(p.id)}">${art(p)}</div></td>
-          <td><b style="font-weight:600">${esc(p.name)}</b><span class="small muted">${esc(p.category)}${p.active ? '' : ' · hidden'}</span></td>
-          <td style="white-space:nowrap">${money(p.price_cents)}${p.compare_cents ? `<span class="small muted" style="text-decoration:line-through">${money(p.compare_cents)}</span>` : ''}</td>
-          <td>${p.stock <= 3 ? `<span class="pill pending">${p.stock}</span>` : p.stock}</td>
-          <td class="small">${esc(p.sizes.replaceAll(',', ', ')) || 'One size'}${p.colours ? `<span class="muted">${esc(p.colours.replaceAll(',', ', '))}</span>` : ''}</td>
-          <td style="white-space:nowrap;text-align:right">
-            <button class="btn ghost sm" data-edit="${p.id}">Edit</button>
-            <button class="btn danger sm" data-delete="${p.id}">Delete</button>
-          </td>
-        </tr>`).join('') || '<tr><td colspan="6" class="muted">No products found.</td></tr>');
+    $('product-count').textContent = `${products.length} ${products.length === 1 ? 'product' : 'products'}`;
+    $('product-table').innerHTML = list.map((p) => `
+      <div class="prow">
+        <button class="prow-pic" data-edit="${p.id}" data-focus="photos" style="--tint:${tint(p.id)}" aria-label="Photos of ${esc(p.name)}">${art(p)}
+          <span class="prow-count">${p.images.length ? `${p.images.length} photo${p.images.length === 1 ? '' : 's'}` : 'No photo'}</span></button>
+        <div class="prow-info">
+          <b>${esc(p.name)}</b>
+          <span class="muted">${esc(p.category)}${p.active ? '' : ' · hidden from shop'}</span>
+          <span>${money(p.price_cents)}${p.compare_cents ? ` <s class="muted">${money(p.compare_cents)}</s>` : ''} · ${p.stock <= 3 ? `<span class="pill pending">${p.stock} left</span>` : `${p.stock} in stock`}</span>
+        </div>
+        <div class="prow-acts">
+          <button class="btn ghost sm" data-edit="${p.id}">Edit</button>
+          <button class="btn ghost sm" data-edit="${p.id}" data-focus="photos">Photos</button>
+          <button class="btn danger sm" data-delete="${p.id}">Delete</button>
+        </div>
+      </div>`).join('') || '<p class="muted" style="margin:0">No products found.</p>';
   }
   $('product-search').addEventListener('input', drawProductTable);
 
@@ -337,10 +384,18 @@ const Admin = (() => {
     drawImages();
     $('product-form-title').textContent = 'Add a product';
     $('product-error').classList.add('hidden');
+    $('delete-in-form').classList.add('hidden');
+    markDirty(false);
   }
-  $('cancel-edit').addEventListener('click', () => { resetForm(); $('product-box').classList.add('hidden'); });
+  $('cancel-edit').addEventListener('click', () => {
+    if (dirty && !confirm('Close without saving your changes?')) return;
+    resetForm();
+    $('product-box').classList.add('hidden');
+  });
+  form.addEventListener('input', () => markDirty());
 
-  function editProduct(id) {
+  function editProduct(id, focus) {
+    if (dirty && editingId !== id && !confirm('You have unsaved changes on the product you were editing. Leave them?')) return;
     const p = products.find((x) => x.id === id);
     if (!p) return;
     editingId = p.id;
@@ -351,6 +406,7 @@ const Admin = (() => {
     f.compare_price.value = p.compare_cents ? p.compare_cents / 100 : '';
     f.stock.value = p.stock;
     f.sizes.value = p.sizes.replaceAll(',', ', ');
+    f.colours.value = (p.colours || '').replaceAll(',', ', ');
     f.description.value = p.description;
     f.details.value = p.details;
     f.color.value = p.color;
@@ -359,20 +415,41 @@ const Admin = (() => {
     drawImages();
     $('product-form-title').textContent = `Editing: ${p.name}`;
     $('product-error').classList.add('hidden');
+    $('delete-in-form').classList.remove('hidden');
+    markDirty(false);
     openForm();
+    if (focus === 'photos') setTimeout(() => $('photos-field').scrollIntoView({ behavior: 'smooth', block: 'center' }), 250);
   }
 
-  $('product-table').addEventListener('click', async (e) => {
+  async function deleteProduct(id) {
+    const p = products.find((x) => x.id === id);
+    if (!p) return;
+    if (!confirm(`Delete "${p.name}" for good?\n\nIts photos are deleted too. Past orders keep their record. If you only want to stop selling it for now, untick "Show in shop" instead.`)) return;
+    try {
+      await api('/admin/products/' + p.id, { method: 'DELETE' });
+      if (editingId === p.id) { resetForm(); $('product-box').classList.add('hidden'); }
+      await loadProducts();
+      toast(`"${p.name}" deleted`);
+    } catch (err) {
+      alert(err.message);
+    }
+  }
+
+  $('product-table').addEventListener('click', (e) => {
     const edit = e.target.closest('[data-edit]');
     const del = e.target.closest('[data-delete]');
-    if (edit) editProduct(Number(edit.dataset.edit));
-    if (del) {
-      const p = products.find((x) => x.id === Number(del.dataset.delete));
-      if (!confirm(`Delete "${p.name}"? Past orders keep their record, but the piece leaves the shop for good.`)) return;
-      await api('/admin/products/' + p.id, { method: 'DELETE' });
-      loadProducts();
-    }
+    if (edit) editProduct(Number(edit.dataset.edit), edit.dataset.focus);
+    if (del) deleteProduct(Number(del.dataset.delete));
   });
+  $('delete-in-form').addEventListener('click', () => { if (editingId) deleteProduct(editingId); });
+
+  function toast(text) {
+    const t = $('toast');
+    t.textContent = text;
+    t.classList.add('show');
+    clearTimeout(toast.timer);
+    toast.timer = setTimeout(() => t.classList.remove('show'), 2600);
+  }
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
@@ -385,6 +462,7 @@ const Admin = (() => {
     $('product-error').classList.add('hidden');
     try {
       await api(editingId ? `/admin/products/${editingId}` : '/admin/products', { method: editingId ? 'PUT' : 'POST', body });
+      toast(editingId ? 'Changes saved' : 'Product added');
       resetForm();
       $('product-box').classList.add('hidden');
       loadProducts();
