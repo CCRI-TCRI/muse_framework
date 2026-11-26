@@ -4,71 +4,76 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <main class="wrap">
-    <div id="product"></div>
-    <section id="videos" class="hidden">
-      <h2>See it on</h2>
-      <div class="video-grid" id="video-list"></div>
-    </section>
-  </main>
+  <main class="wrap" id="page"></main>
 
   <script src="/js/common.js"></script>
   <script>
     (async () => {
-      await Store.chrome('shop');
-      const box = document.getElementById('product');
-      const id = new URLSearchParams(location.search).get('id');
+      const { esc, art, money, card } = Store;
+      const cfg = await Store.chrome('shop');
+      const page = document.getElementById('page');
       let p;
       try {
-        p = await Store.api('/products/' + encodeURIComponent(id));
+        p = await Store.api('/products/' + encodeURIComponent(new URLSearchParams(location.search).get('id')));
       } catch (err) {
-        box.innerHTML = `<p class="empty">${Store.esc(err.message)} <a href="/">Back to the shop</a></p>`;
+        page.innerHTML = `<div class="empty"><h2>${esc(err.message)}</h2><a class="u-link" href="/shop">Back to the shop</a></div>`;
         return;
       }
-      document.title = p.name + ' · ' + document.title;
+      document.title = `${p.name} · ${cfg.storeName}`;
       let size = p.sizes.length === 1 ? p.sizes[0] : '';
+      const shots = p.images.length ? p.images.map((_, i) => art(p, { index: i })) : [art(p)];
 
-      box.innerHTML = `
-        <div class="product">
-          <div class="pic">${Store.picture(p)}</div>
-          <div>
-            <div class="label">${Store.esc(p.category)}</div>
-            <h1>${Store.esc(p.name)}</h1>
-            <div class="price">${Store.money(p.price_cents)}</div>
-            ${p.sizes.length ? `
-              <div class="label">Size</div>
-              <div class="sizes">${p.sizes.map((s) => `<button class="size ${s === size ? 'on' : ''}" data-size="${Store.esc(s)}">${Store.esc(s)}</button>`).join('')}</div>` : ''}
+      page.innerHTML = `
+        <nav class="crumbs"><a href="/shop">Shop</a> / <a href="/shop?category=${encodeURIComponent(p.category)}">${esc(p.category)}</a></nav>
+        <div class="pdp">
+          <div class="gallery ${shots.length === 1 ? 'single' : ''}">${shots.map((s) => `<div class="shot">${s}</div>`).join('')}</div>
+          <div class="buy">
+            <div class="eyebrow">${esc(p.category)}</div>
+            <h1>${esc(p.name)}</h1>
+            <div class="price">${money(p.price_cents)}</div>
+            ${p.sizes.length > 1 ? `
+              <div class="size-head"><span class="eyebrow">Size</span><span class="small muted" id="size-label">Select a size</span></div>
+              <div class="sizes">${p.sizes.map((s) => `<button class="size" data-size="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : ''}
             <button class="btn block" id="add" ${p.in_stock ? '' : 'disabled'}>${p.in_stock ? 'Add to bag' : 'Sold out'}</button>
-            <div id="note" class="small muted" style="margin-top:10px">${p.low_stock ? `Only ${p.low_stock} left.` : ''}</div>
-            <div class="desc">${Store.esc(p.description)}</div>
+            <div class="stock-note" id="note">${p.low_stock ? `Only ${p.low_stock} left` : ''}</div>
+            <div class="acc">
+              <details open><summary>Description</summary><div class="body">${esc(p.description)}</div></details>
+              ${p.details ? `<details><summary>Composition &amp; care</summary><div class="body">${esc(p.details)}</div></details>` : ''}
+              <details><summary>Delivery &amp; returns</summary><div class="body">${esc(cfg.settings.shipping_info)}</div></details>
+            </div>
           </div>
-        </div>`;
+        </div>
+        ${p.videos.length ? `
+          <section class="section" style="padding-top:0">
+            <div class="section-head"><div><div class="eyebrow">On film</div><h2>See it move</h2></div></div>
+            <div class="films">${p.videos.map((v) => `<div class="film"><video src="${esc(v.file)}" controls playsinline preload="metadata"></video><div class="cap"><h3>${esc(v.title)}</h3></div></div>`).join('')}</div>
+          </section>` : ''}
+        ${p.related.length ? `
+          <section class="section" style="padding-top:0">
+            <div class="section-head"><div><div class="eyebrow">Also consider</div><h2>You may also like</h2></div></div>
+            <div class="grid">${p.related.map(card).join('')}</div>
+          </section>` : ''}`;
 
-      box.querySelector('.sizes')?.addEventListener('click', (e) => {
+      page.querySelector('.sizes')?.addEventListener('click', (e) => {
         const b = e.target.closest('[data-size]');
         if (!b) return;
         size = b.dataset.size;
-        box.querySelectorAll('.size').forEach((x) => x.classList.toggle('on', x === b));
+        page.querySelectorAll('.size').forEach((x) => x.classList.toggle('on', x === b));
+        document.getElementById('size-label').textContent = `Size ${size}`;
+        document.getElementById('note').textContent = p.low_stock ? `Only ${p.low_stock} left` : '';
       });
 
       document.getElementById('add').addEventListener('click', () => {
-        const note = document.getElementById('note');
-        if (p.sizes.length && !size) { note.textContent = 'Pick a size first.'; return; }
+        if (p.sizes.length && !size) { document.getElementById('note').textContent = 'Please choose a size first.'; return; }
         Store.addToBag(p, size);
-        note.innerHTML = 'Added. <a href="/cart.html">View your bag</a>';
+        Store.openDrawer('bag');
       });
-
-      if (p.videos.length) {
-        document.getElementById('videos').classList.remove('hidden');
-        document.getElementById('video-list').innerHTML = p.videos.map((v) => `
-          <div class="video-card">
-            <video src="${Store.esc(v.file)}" controls playsinline preload="metadata"></video>
-            <h3>${Store.esc(v.title)}</h3>
-          </div>`).join('');
-      }
+      Store.reveal();
     })();
   </script>
 </body>

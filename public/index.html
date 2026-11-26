@@ -4,50 +4,108 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <main class="wrap">
-    <section class="hero">
-      <h1>Clothes made to be worn <em>a lot</em>.</h1>
-      <p>Small runs, good fabric, and a live try-on whenever we drop something new. Catch the next stream to see every piece moving before you buy.</p>
+  <main>
+    <section id="hero"></section>
+    <div id="live-band"></div>
+
+    <section class="section wrap">
+      <div class="section-head reveal">
+        <div><div class="eyebrow">Just in</div><h2>New arrivals</h2></div>
+        <a class="u-link small" href="/shop" style="letter-spacing:.14em;text-transform:uppercase">View all</a>
+      </div>
+      <div class="grid" id="new-in"></div>
     </section>
-    <div class="filters" id="filters"></div>
-    <div class="grid" id="grid"></div>
+
+    <section id="films-section" class="section wrap hidden" style="padding-top:0">
+      <div class="section-head reveal">
+        <div><div class="eyebrow">On film</div><h2>See it move</h2></div>
+        <a class="u-link small" href="/videos" style="letter-spacing:.14em;text-transform:uppercase">All films</a>
+      </div>
+      <div class="films" id="films"></div>
+    </section>
+
+    <section id="cats-section" class="section wrap hidden" style="padding-top:0">
+      <div class="section-head reveal"><div><div class="eyebrow">Browse</div><h2>Shop by category</h2></div></div>
+      <div class="cat-tiles" id="cats"></div>
+    </section>
+
+    <section class="about-band reveal">
+      <div class="eyebrow">The studio</div>
+      <p id="about"></p>
+    </section>
   </main>
 
   <script src="/js/common.js"></script>
   <script>
     (async () => {
-      await Store.chrome('shop');
-      const products = await Store.api('/products');
-      const grid = document.getElementById('grid');
-      const filters = document.getElementById('filters');
-      const categories = ['All', ...new Set(products.map((p) => p.category))];
-      let current = 'All';
+      const { esc, art, card, money } = Store;
+      const cfg = await Store.chrome('home');
+      const s = cfg.settings;
+      const products = await Store.products();
 
-      function draw() {
-        filters.innerHTML = categories.length > 2
-          ? categories.map((c) => `<button class="chip ${c === current ? 'on' : ''}" data-cat="${Store.esc(c)}">${Store.esc(c)}</button>`).join('')
-          : '';
-        const list = products.filter((p) => current === 'All' || p.category === current);
-        grid.innerHTML = list.length ? list.map((p) => `
-          <a class="card" href="/product.html?id=${p.id}">
-            <div class="pic">${Store.picture(p)}</div>
-            ${!p.in_stock ? '<div class="tag">Sold out</div>' : p.low_stock ? `<div class="tag">Only ${p.low_stock} left</div>` : ''}
-            <div class="name">${Store.esc(p.name)}</div>
-            <div class="price">${Store.money(p.price_cents)}</div>
-          </a>`).join('')
-          : '<p class="empty">Nothing here yet. New pieces are on the way.</p>';
+      // Hero: the uploaded picture or film if there is one, otherwise a split layout with two pieces.
+      const hero = document.getElementById('hero');
+      const copy = `
+        <div class="hero-copy">
+          <div class="eyebrow">${esc(s.hero_kicker)}</div>
+          <h1>${esc(s.hero_title)}</h1>
+          <p>${esc(s.hero_text)}</p>
+          <a class="btn ${s.hero_media ? 'light' : ''}" href="/shop">Shop the collection</a>
+        </div>`;
+      if (s.hero_media) {
+        hero.className = 'hero';
+        hero.innerHTML = `<div class="hero-media">${s.hero_media_type === 'video'
+          ? `<video src="${esc(s.hero_media)}" autoplay muted loop playsinline></video>`
+          : `<img src="${esc(s.hero_media)}" alt="">`}</div>${copy}`;
+      } else {
+        hero.className = 'hero split';
+        const picks = products.slice(0, 3);
+        hero.innerHTML = copy + `<div class="hero-figure">${picks.map((p) => `<a href="/product?id=${p.id}">${art(p)}</a>`).join('')}</div>`;
       }
 
-      filters.addEventListener('click', (e) => {
-        const btn = e.target.closest('[data-cat]');
-        if (!btn) return;
-        current = btn.dataset.cat;
-        draw();
+      document.getElementById('new-in').innerHTML = products.slice(0, 8).map(card).join('')
+        || '<p class="muted">New pieces are on the way.</p>';
+      document.getElementById('about').textContent = s.about;
+
+      // Categories, each shown with its newest piece.
+      const cats = [...new Map(products.map((p) => [p.category, p])).values()];
+      if (cats.length > 1) {
+        document.getElementById('cats-section').classList.remove('hidden');
+        document.getElementById('cats').innerHTML = cats.slice(0, 4).map((p) => {
+          const dark = p.images.length > 0 || Store.isDark(p.color);
+          return `<a class="cat-tile reveal ${dark ? 'dark' : ''}" href="/shop?category=${encodeURIComponent(p.category)}">
+            ${art(p)}<span class="label">${esc(p.category)}<small>Shop now</small></span></a>`;
+        }).join('');
+      }
+
+      // Latest films; they play while on screen.
+      const films = await Store.api('/videos');
+      if (films.length) {
+        document.getElementById('films-section').classList.remove('hidden');
+        document.getElementById('films').innerHTML = films.slice(0, 3).map((v) => `
+          <div class="film reveal">
+            <video src="${esc(v.file)}" muted loop playsinline preload="metadata"></video>
+            <div class="cap"><h3>${esc(v.title)}</h3>${v.product_name ? `<a href="/product?id=${v.product_id}">${esc(v.product_name)}, ${money(v.product_price)}</a>` : ''}</div>
+          </div>`).join('');
+        const io = new IntersectionObserver((es) => es.forEach((e) => e.isIntersecting ? e.target.play().catch(() => {}) : e.target.pause()), { threshold: .4 });
+        document.querySelectorAll('#films video').forEach((v) => io.observe(v));
+      }
+
+      Store.live().then((st) => {
+        if (!st.live) return;
+        document.getElementById('live-band').innerHTML = `
+          <section class="live-band"><div class="wrap">
+            <div><div class="eyebrow"><span class="live-dot"></span>Live now</div><h2>${esc(st.title)}</h2></div>
+            <a class="btn light" href="/live">Watch and shop</a>
+          </div></section>`;
       });
-      draw();
+
+      Store.reveal();
     })();
   </script>
 </body>

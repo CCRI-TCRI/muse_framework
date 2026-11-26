@@ -5,40 +5,42 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex">
   <title>Admin</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <main class="wrap" style="padding-bottom:64px">
+  <main class="admin-wrap">
 
-    <!-- login -->
-    <section id="login-view" class="hidden" style="max-width:380px;margin:72px auto">
-      <h1>Shop admin</h1>
+    <section id="login-view" class="hidden" style="max-width:420px;margin:clamp(40px,10vw,120px) auto">
+      <div class="eyebrow">Studio</div>
+      <h1 style="font-size:56px;margin:12px 0 30px">Sign in</h1>
       <form class="form" id="login-form">
-        <label class="field">Password <input type="password" id="password" autocomplete="current-password" required></label>
-        <div class="msg err hidden" id="login-error"></div>
-        <button class="btn">Log in</button>
+        <label class="field"><span>Password</span><input type="password" id="password" autocomplete="current-password" required></label>
+        <div class="note err hidden" id="login-error"></div>
+        <button class="btn block">Sign in</button>
       </form>
     </section>
 
-    <!-- dashboard -->
     <section id="admin-view" class="hidden">
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-top:32px;gap:12px">
-        <h1 style="margin:0">Admin</h1>
-        <button class="btn ghost sm" id="logout">Log out</button>
+      <div class="admin-top">
+        <div><div class="eyebrow">Studio</div><h1>Admin</h1></div>
+        <div style="display:flex;gap:8px"><a class="btn ghost sm" href="/" target="_blank">View shop</a><button class="btn ghost sm" id="logout">Sign out</button></div>
       </div>
 
-      <nav class="admin-tabs" id="tabs">
+      <nav class="tabs" id="tabs">
         <button data-tab="overview" class="on">Overview</button>
         <button data-tab="products">Products</button>
-        <button data-tab="videos">Videos</button>
+        <button data-tab="films">Films</button>
         <button data-tab="orders">Orders</button>
+        <button data-tab="homepage">Homepage</button>
         <button data-tab="studio">Go live</button>
       </nav>
 
       <!-- overview -->
       <div data-panel="overview">
         <div class="stats" id="stats"></div>
-        <div class="panel" id="setup-tip"></div>
+        <div class="panel" id="setup"></div>
       </div>
 
       <!-- products -->
@@ -46,100 +48,125 @@
         <div class="panel">
           <h2 id="product-form-title">Add a product</h2>
           <form class="form" id="product-form">
-            <input type="hidden" name="id">
             <div class="row2">
-              <label class="field">Name <input name="name" required maxlength="120"></label>
-              <label class="field">Category <input name="category" placeholder="Tops, Bottoms, Outerwear..." list="cat-list"></label>
-              <datalist id="cat-list"></datalist>
+              <label class="field"><span>Name</span><input name="name" required maxlength="120"></label>
+              <label class="field"><span>Category</span><input name="category" placeholder="Outerwear, Knitwear, Dresses..." list="cat-list"><datalist id="cat-list"></datalist></label>
             </div>
             <div class="row2">
-              <label class="field">Price <input name="price" type="number" min="0.5" step="0.01" required></label>
-              <label class="field">How many in stock <input name="stock" type="number" min="0" step="1" value="10" required></label>
+              <label class="field"><span>Price</span><input name="price" type="number" min="0.5" step="0.01" required></label>
+              <label class="field"><span>In stock</span><input name="stock" type="number" min="0" step="1" value="10" required></label>
             </div>
-            <label class="field">Sizes, separated by commas <input name="sizes" placeholder="XS,S,M,L,XL (leave empty if one size)"></label>
-            <label class="field">Description <textarea name="description" maxlength="4000"></textarea></label>
+            <label class="field"><span>Sizes, separated by commas (leave empty for one size)</span><input name="sizes" placeholder="XS, S, M, L, XL"></label>
+            <label class="field"><span>Description</span><textarea name="description" maxlength="4000"></textarea></label>
+            <label class="field"><span>Composition &amp; care, one point per line</span><textarea name="details" maxlength="2000" placeholder="100% wool&#10;Dry clean only&#10;Made in Portugal"></textarea></label>
+            <div class="field">
+              <span>Photos (the first one is the cover, the second shows on hover)</span>
+              <div class="image-list" id="image-list"></div>
+              <input type="file" id="image-input" accept="image/jpeg,image/png,image/webp,image/avif" multiple>
+              <div class="progress hidden" id="image-progress"><div></div></div>
+            </div>
             <div class="row2">
-              <label class="field">Photo <input name="image" type="file" accept="image/*"></label>
-              <label class="field">Fallback colour (used when there is no photo) <input name="color" type="color" value="#d9cfc1"></label>
+              <label class="field"><span>Background colour (used until there's a photo)</span><input name="color" type="color" value="#e7e2da"></label>
+              <label class="check" style="align-self:end;padding-bottom:14px"><input type="checkbox" name="active" checked> Show in shop</label>
             </div>
-            <div style="display:flex;gap:16px;flex-wrap:wrap">
-              <label class="toggle"><input type="checkbox" name="active" checked> Show in shop</label>
-              <label class="toggle hidden" id="remove-image-wrap"><input type="checkbox" name="removeImage"> Remove current photo</label>
-            </div>
-            <div class="msg err hidden" id="product-error"></div>
-            <div style="display:flex;gap:8px">
-              <button class="btn">Save product</button>
+            <div class="note err hidden" id="product-error"></div>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn" id="save-product">Save product</button>
               <button type="button" class="btn ghost hidden" id="cancel-edit">Cancel</button>
             </div>
           </form>
         </div>
-        <div class="panel table-scroll">
-          <table class="table" id="product-table"></table>
-        </div>
+        <div class="panel scroll-x"><table class="table" id="product-table"></table></div>
       </div>
 
-      <!-- videos -->
-      <div data-panel="videos" class="hidden">
+      <!-- films -->
+      <div data-panel="films" class="hidden">
         <div class="panel">
-          <h2>Upload a video</h2>
+          <h2>Upload a film</h2>
           <form class="form" id="video-form">
-            <label class="field">Video file (MP4, MOV or WebM, up to 2 GB) <input type="file" name="video" accept="video/mp4,video/quicktime,video/webm,video/x-m4v" required></label>
-            <label class="field">Title <input name="title" maxlength="140" required></label>
-            <label class="field">Short description <input name="description" maxlength="2000"></label>
-            <label class="field">Link it to a product (optional) <select name="product_id" data-product-select></select></label>
+            <label class="field"><span>Video file (MP4, MOV or WebM)</span><input type="file" name="file" accept="video/mp4,video/quicktime,video/webm,video/x-m4v" required></label>
+            <div class="row2">
+              <label class="field"><span>Title</span><input name="title" maxlength="140" required></label>
+              <label class="field"><span>Link to a product (optional)</span><select name="product_id" data-product-select></select></label>
+            </div>
+            <label class="field"><span>Short description</span><input name="description" maxlength="2000"></label>
             <div class="progress hidden" id="video-progress"><div></div></div>
-            <div class="msg err hidden" id="video-error"></div>
+            <div class="note err hidden" id="video-error"></div>
             <div><button class="btn">Upload</button></div>
           </form>
         </div>
-        <div class="video-grid" id="admin-videos"></div>
+        <div class="admin-films" id="admin-films"></div>
       </div>
 
       <!-- orders -->
       <div data-panel="orders" class="hidden">
-        <div class="panel table-scroll">
-          <table class="table" id="order-table"></table>
+        <div class="panel scroll-x"><table class="table" id="order-table"></table></div>
+      </div>
+
+      <!-- homepage -->
+      <div data-panel="homepage" class="hidden">
+        <div class="panel">
+          <h2>Homepage</h2>
+          <form class="form" id="settings-form">
+            <label class="field"><span>Banner along the top (leave empty to hide)</span><input name="announcement" maxlength="200"></label>
+            <div class="field">
+              <span>Big picture or film at the top of the homepage</span>
+              <div id="hero-preview" style="max-width:420px"></div>
+              <input type="file" id="hero-input" accept="image/jpeg,image/png,image/webp,image/avif,video/mp4,video/webm,video/quicktime">
+              <div class="progress hidden" id="hero-progress"><div></div></div>
+              <div class="small muted">A wide, landscape photo or a short silent film works best. Without one, the homepage shows your first products instead.</div>
+            </div>
+            <div class="row2">
+              <label class="field"><span>Small line above the headline</span><input name="hero_kicker" maxlength="60"></label>
+              <label class="field"><span>Headline</span><input name="hero_title" maxlength="80"></label>
+            </div>
+            <label class="field"><span>Text under the headline</span><textarea name="hero_text" maxlength="400"></textarea></label>
+            <label class="field"><span>About the studio (homepage and footer)</span><textarea name="about" maxlength="600"></textarea></label>
+            <label class="field"><span>Delivery and returns</span><textarea name="shipping_info" maxlength="1200"></textarea></label>
+            <label class="field"><span>Instagram link (optional)</span><input name="instagram" type="url" placeholder="https://instagram.com/yourshop"></label>
+            <div class="note hidden" id="settings-msg"></div>
+            <div><button class="btn">Save homepage</button></div>
+          </form>
         </div>
       </div>
 
-      <!-- live studio -->
+      <!-- studio -->
       <div data-panel="studio" class="hidden">
-        <div class="live-layout" style="padding-top:0">
+        <div class="studio">
           <section>
             <div class="stage">
               <video id="preview" autoplay playsinline muted></video>
-              <span class="badge hidden" id="studio-badge">LIVE</span>
-              <span class="count hidden" id="studio-count">0 watching</span>
+              <div class="badge hidden" id="studio-badge"><span class="on-air">Live</span><span id="studio-count">0 watching</span></div>
               <div class="idle" id="studio-idle">
+                <div class="eyebrow">Studio</div>
                 <h2>Camera is off</h2>
-                <p>Turn your camera on to check how you look before going live.</p>
+                <p class="small" style="color:rgba(236,232,225,.7)">Turn it on to check your frame and light before going live.</p>
               </div>
             </div>
-            <div class="studio-controls">
-              <button class="btn ghost" id="cam-on">Turn camera on</button>
-              <select id="cam-select" class="hidden" style="width:auto"></select>
-              <button class="btn ghost hidden" id="mic-toggle">Mute mic</button>
+            <div class="controls">
+              <button class="btn ghost sm" id="cam-on">Turn camera on</button>
+              <select id="cam-select" class="hidden"></select>
+              <button class="btn ghost sm hidden" id="mic-toggle">Mute mic</button>
             </div>
             <div class="form">
-              <label class="field">Stream title <input id="stream-title" maxlength="100" placeholder="New drop try-on"></label>
-              <label class="toggle"><input type="checkbox" id="record" checked> Save a replay to Videos when I end the stream</label>
-              <div class="msg err hidden" id="studio-error"></div>
+              <label class="field"><span>Stream title</span><input id="stream-title" maxlength="100" placeholder="The new knitwear, tried on"></label>
+              <label class="check"><input type="checkbox" id="record" checked> Save a replay to Films when I end the stream</label>
+              <div class="note err hidden" id="studio-error"></div>
               <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn accent" id="go-live" disabled>Go live</button>
+                <button class="btn" id="go-live" disabled>Go live</button>
                 <button class="btn danger hidden" id="end-live">End stream</button>
               </div>
               <div class="progress hidden" id="replay-progress"><div></div></div>
-              <label class="field">Product shown to viewers
-                <select id="pin-select" data-product-select></select>
-              </label>
-              <p class="small muted">Viewers get an "Add to bag" button for the product you pick here. Change it as you try things on.
-                Your upload speed limits how many people can watch smoothly, so use wifi or a wired connection if you can.</p>
+              <label class="field"><span>Piece viewers can buy right now</span><select id="pin-select" data-product-select></select></label>
+              <p class="small muted">Viewers get an "Add to bag" button for this piece. Switch it as you try things on.
+                Every viewer receives video straight from this device, so a strong upload connection matters. Keep this tab open and in front while you're live.</p>
             </div>
           </section>
           <aside class="chat">
-            <div class="log" id="studio-log"><div class="muted small">Viewer messages show up here.</div></div>
+            <div class="chat-head eyebrow">Chat</div>
+            <div class="log" id="studio-log"><div class="small" style="opacity:.55">Messages from viewers show up here.</div></div>
             <form id="studio-chat">
-              <input id="studio-text" placeholder="Reply as the shop" maxlength="300" autocomplete="off">
+              <input id="studio-text" placeholder="Reply as the studio" maxlength="300" autocomplete="off">
               <button class="btn sm">Send</button>
             </form>
           </aside>

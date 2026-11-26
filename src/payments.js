@@ -5,16 +5,15 @@ const { sign } = require('./auth');
 const stripe = config.stripeSecretKey ? require('stripe')(config.stripeSecretKey) : null;
 const demoMode = !stripe;
 
-const SHIP_COUNTRIES = (process.env.SHIP_COUNTRIES || 'US,CA,GB,IE,AU,NZ,DE,FR,NL,BE,ES,IT,SE,DK,NO,FI,AT,CH,PT')
-  .split(',').map((c) => c.trim().toUpperCase()).filter(Boolean);
-
-// Turns a cart sent by the browser into priced line items using the database.
+// Turns the bag sent by the browser into priced lines using the database.
 // Prices from the browser are never trusted.
-function priceCart(items) {
+async function priceCart(items) {
   if (!Array.isArray(items) || items.length === 0) throw new Error('Your bag is empty.');
   if (items.length > 50) throw new Error('That is a lot of items. Please split it into two orders.');
 
-  const getProduct = db.prepare('SELECT * FROM products WHERE id = ? AND active = 1');
+  const ids = [...new Set(items.map((i) => Number(i.id)).filter(Number.isInteger))];
+  const rows = await db.query('SELECT * FROM products WHERE id = ANY($1::int[]) AND active', [ids]);
+  const byId = new Map(rows.map((p) => [p.id, p]));
   const lines = [];
   const wanted = new Map();
 
@@ -22,46 +21,43 @@ function priceCart(items) {
     const id = Number(raw.id);
     const qty = Math.floor(Number(raw.qty));
     if (!Number.isInteger(id) || !Number.isInteger(qty) || qty < 1 || qty > 20) throw new Error('Something in your bag looks off. Try removing it and adding it again.');
-    const product = getProduct.get(id);
+    const product = byId.get(id);
     if (!product) throw new Error('One of the items in your bag is no longer available.');
 
     const sizes = product.sizes.split(',').map((s) => s.trim()).filter(Boolean);
     const size = sizes.length ? String(raw.size || '') : '';
-    if (sizes.length && !sizes.includes(size)) throw new Error(`Please pick a size for ${product.name}.`);
+    if (sizes.length && !sizes.includes(size)) throw new Error(`Please choose a size for ${product.name}.`);
 
     wanted.set(id, (wanted.get(id) || 0) + qty);
     if (wanted.get(id) > product.stock) {
       throw new Error(product.stock > 0
-        ? `Only ${product.stock} of ${product.name} left, please lower the quantity.`
-        : `${product.name} just sold out, sorry.`);
+        ? `Only ${product.stock} of ${product.name} left. Please lower the quantity.`
+        : `${product.name} has just sold out, sorry.`);
     }
     lines.push({ product, size, qty });
   }
   return lines;
 }
 
-function createOrder(lines) {
+async function createOrder(lines) {
   const total = lines.reduce((sum, l) => sum + l.product.price_cents * l.qty, 0);
-  const order = db.prepare('INSERT INTO orders (total_cents, demo) VALUES (?, ?)').run(total, demoMode ? 1 : 0);
-  const orderId = Number(order.lastInsertRowid);
-  const addItem = db.prepare(`INSERT INTO order_items (order_id, product_id, name, size, unit_price_cents, quantity)
-                              VALUES (?, ?, ?, ?, ?, ?)`);
-  for (const l of lines) addItem.run(orderId, l.product.id, l.product.name, l.size || null, l.product.price_cents, l.qty);
-  return orderId;
-}
-
-function demoToken(orderId) {
-  return sign(`demo-order-${orderId}`);
-}
-
-async function startCheckout(items) {
-  const lines = priceCart(items);
-  const orderId = createOrder(lines);
-
-  if (demoMode) {
-    return { url: `/success.html?order=${orderId}&token=${demoToken(orderId)}` };
+  const order = await db.one('INSERT INTO orders (total_cents, demo) VALUES ($1, $2) RETURNING id', [total, demoMode]);
+  for (const l of lines) {
+    await db.query(`INSERT INTO order_items (order_id, product_id, name, size, unit_price_cents, quantity)
+                    VALUES ($1, $2, $3, $4, $5, $6)`, [order.id, l.product.id, l.product.name, l.size || null, l.product.price_cents, l.qty]);
   }
+  return order.id;
+}
 
+const demoToken = (orderId) => sign(`demo-order-${orderId}`);
+
+async function startCheckout(items, baseUrl) {
+  const lines = await priceCart(items);
+  const orderId = await createOrder(lines);
+
+  if (demoMode) return { url: `/success?order=${orderId}&token=${demoToken(orderId)}` };
+
+  const absolute = (url) => (url.startsWith('http') ? url : baseUrl + url);
   const session = await stripe.checkout.sessions.create({
     mode: 'payment',
     line_items: lines.map((l) => ({
@@ -70,20 +66,20 @@ async function startCheckout(items) {
         currency: config.currency,
         unit_amount: l.product.price_cents,
         product_data: {
-          name: l.size ? `${l.product.name} (${l.size})` : l.product.name,
-          ...(l.product.image ? { images: [config.publicUrl + l.product.image] } : {}),
+          name: l.size ? `${l.product.name}, size ${l.size}` : l.product.name,
+          ...(l.product.images[0] ? { images: [absolute(l.product.images[0])] } : {}),
         },
       },
     })),
-    shipping_address_collection: { allowed_countries: SHIP_COUNTRIES },
+    shipping_address_collection: { allowed_countries: config.shipCountries },
     phone_number_collection: { enabled: true },
     client_reference_id: String(orderId),
     metadata: { order_id: String(orderId) },
-    success_url: `${config.publicUrl}/success.html?session_id={CHECKOUT_SESSION_ID}`,
-    cancel_url: `${config.publicUrl}/cart.html?cancelled=1`,
+    success_url: `${baseUrl}/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${baseUrl}/cart?cancelled=1`,
   });
 
-  db.prepare('UPDATE orders SET stripe_session_id = ? WHERE id = ?').run(session.id, orderId);
+  await db.query('UPDATE orders SET stripe_session_id = $1 WHERE id = $2', [session.id, orderId]);
   return { url: session.url };
 }
 
@@ -94,24 +90,22 @@ function formatAddress(details) {
     .filter(Boolean).join('\n');
 }
 
-// Marks an order paid and takes the items out of stock. Safe to call twice.
-function markPaid(orderId, { email = null, name = null, address = null } = {}) {
-  db.exec('BEGIN IMMEDIATE');
-  try {
-    const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId);
-    if (!order) { db.exec('ROLLBACK'); return null; }
-    if (order.status === 'pending') {
-      db.prepare(`UPDATE orders SET status = 'paid', paid_at = datetime('now'), email = ?, customer_name = ?, shipping_address = ?
-                  WHERE id = ?`).run(email, name, address, orderId);
-      const items = db.prepare('SELECT product_id, quantity FROM order_items WHERE order_id = ?').all(orderId);
-      const takeStock = db.prepare('UPDATE products SET stock = MAX(stock - ?, 0) WHERE id = ?');
-      for (const item of items) if (item.product_id) takeStock.run(item.quantity, item.product_id);
-    }
-    db.exec('COMMIT');
-  } catch (err) {
-    db.exec('ROLLBACK');
-    throw err;
-  }
+// Marks an order paid and takes its items out of stock, in one statement so
+// it can't half-happen. Calling it twice does nothing the second time.
+async function markPaid(orderId, { email = null, name = null, address = null } = {}) {
+  await db.query(`
+    WITH paid AS (
+      UPDATE orders SET status = 'paid', paid_at = now(), email = $2, customer_name = $3, shipping_address = $4
+      WHERE id = $1 AND status = 'pending'
+      RETURNING id
+    ), taken AS (
+      SELECT oi.product_id, SUM(oi.quantity)::int AS qty
+      FROM order_items oi JOIN paid ON paid.id = oi.order_id
+      WHERE oi.product_id IS NOT NULL
+      GROUP BY oi.product_id
+    )
+    UPDATE products p SET stock = GREATEST(p.stock - taken.qty, 0)
+    FROM taken WHERE p.id = taken.product_id`, [orderId, email, name, address]);
   return orderId;
 }
 
@@ -135,18 +129,19 @@ async function confirm({ sessionId, orderId, token }) {
     if (!id) return { status: 'unpaid' };
   } else if (orderId && token && demoMode) {
     id = Number(orderId);
-    if (token !== demoToken(id)) return { status: 'unknown' };
-    markPaid(id, { name: 'Demo customer' });
+    if (!Number.isInteger(id) || token !== demoToken(id)) return { status: 'unknown' };
+    await markPaid(id, { name: 'Test customer' });
   } else {
     return { status: 'unknown' };
   }
 
-  const order = db.prepare('SELECT id, status, total_cents, email, demo FROM orders WHERE id = ?').get(id);
-  const items = db.prepare('SELECT name, size, unit_price_cents, quantity FROM order_items WHERE order_id = ?').all(id);
+  const order = await db.one('SELECT id, status, total_cents, email, demo FROM orders WHERE id = $1', [id]);
+  if (!order) return { status: 'unknown' };
+  const items = await db.query('SELECT name, size, unit_price_cents, quantity FROM order_items WHERE order_id = $1 ORDER BY id', [id]);
   return { ...order, items };
 }
 
-function webhook(rawBody, signature) {
+async function webhook(rawBody, signature) {
   if (!stripe || !config.stripeWebhookSecret) throw new Error('Webhooks are not set up.');
   const event = stripe.webhooks.constructEvent(rawBody, signature, config.stripeWebhookSecret);
   if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {

@@ -1,131 +1,141 @@
+// Live page for shoppers. Checks in with the server every second or two,
+// picks up chat, the pinned piece, and the seller's video connection.
 (async () => {
+  const { api, esc, money, art } = Store;
   const cfg = await Store.chrome('live');
   const $ = (id) => document.getElementById(id);
   const video = $('video');
-  let ws, pc, live = false, retryTimer;
 
-  const nameInput = $('name');
-  try { nameInput.value = localStorage.getItem('store-chat-name') || ''; } catch {}
+  let session = null;      // which stream we're watching
+  let viewerId = null;     // our seat in that stream
+  let lastChat = 0;
+  let pc = null;
+  let pinnedId = null;
+  let joinedAt = 0;
+  let wasLive = false;
 
-  function setLive(status) {
-    live = status.live && !!status.startedAt;
-    $('idle').classList.toggle('hidden', live);
-    $('badge').classList.toggle('hidden', !live);
-    $('count').classList.toggle('hidden', !live);
-    $('title').textContent = live ? status.title : '';
-    if (live) {
-      setCount(status.viewers);
-      showPinned(status.pinned);
-      if (!pc) requestStream();
-    } else {
-      stopVideo();
-      showPinned(null);
-    }
+  try { $('name').value = localStorage.getItem('store-chat-name') || ''; } catch {}
+
+  // Waits until the browser has found its network routes, so the whole answer
+  // goes in one message instead of many small ones.
+  function gathered(conn) {
+    if (conn.iceGatheringState === 'complete') return Promise.resolve();
+    return new Promise((resolve) => {
+      const done = () => { if (conn.iceGatheringState === 'complete') { conn.removeEventListener('icegatheringstatechange', done); resolve(); } };
+      conn.addEventListener('icegatheringstatechange', done);
+      setTimeout(resolve, 2500);
+    });
   }
 
-  function setCount(n) {
-    $('count').textContent = `${n} watching`;
-  }
-
-  function requestStream() {
-    send({ type: 'ready' });
-  }
-
-  function stopVideo() {
+  function dropVideo() {
     if (pc) { pc.close(); pc = null; }
     video.srcObject = null;
     video.classList.add('hidden');
     $('unmute').classList.add('hidden');
   }
 
-  async function onSignal(data) {
-    if (data.sdp && data.sdp.type === 'offer') {
-      if (pc) pc.close();
-      pc = new RTCPeerConnection({ iceServers: cfg.iceServers });
-      pc.ontrack = (e) => {
-        video.srcObject = e.streams[0];
-        video.classList.remove('hidden');
-        video.play().catch(() => {});
-        if (video.muted) $('unmute').classList.remove('hidden');
-      };
-      pc.onicecandidate = (e) => { if (e.candidate) send({ type: 'signal', data: { candidate: e.candidate } }); };
-      pc.onconnectionstatechange = () => {
-        if (pc && pc.connectionState === 'failed') {
-          stopVideo();
-          clearTimeout(retryTimer);
-          retryTimer = setTimeout(() => live && requestStream(), 2000);
-        }
-      };
-      await pc.setRemoteDescription(data.sdp);
-      const answer = await pc.createAnswer();
-      await pc.setLocalDescription(answer);
-      send({ type: 'signal', data: { sdp: pc.localDescription } });
-    } else if (data.candidate && pc) {
-      try { await pc.addIceCandidate(data.candidate); } catch {}
-    }
+  async function join() {
+    dropVideo();
+    viewerId = null;
+    const r = await api('/live/join', { method: 'POST' });
+    if (r.full) { $('idle').innerHTML = '<div class="eyebrow">Full house</div><h2>So many of you</h2><p class="small">The stream is full right now. Try again in a few minutes.</p>'; return; }
+    viewerId = r.viewerId || null;
+    joinedAt = Date.now();
+  }
+
+  async function answer(offer) {
+    dropVideo();
+    pc = new RTCPeerConnection({ iceServers: cfg.iceServers });
+    const conn = pc;
+    pc.ontrack = (e) => {
+      video.srcObject = e.streams[0];
+      video.classList.remove('hidden');
+      video.play().catch(() => {});
+      if (video.muted) $('unmute').classList.remove('hidden');
+    };
+    pc.onconnectionstatechange = () => {
+      if (conn.connectionState === 'failed') join().catch(() => {});
+    };
+    await pc.setRemoteDescription(offer);
+    await pc.setLocalDescription(await pc.createAnswer());
+    await gathered(pc);
+    await api('/live/signal', { method: 'POST', body: { viewer: viewerId, data: { sdp: pc.localDescription } } });
   }
 
   function showPinned(p) {
     const box = $('pinned');
-    if (!p) { box.classList.add('hidden'); return; }
+    if (!p) { pinnedId = null; box.classList.add('hidden'); return; }
+    if (p.id === pinnedId) return;
+    pinnedId = p.id;
     box.classList.remove('hidden');
     box.innerHTML = `
-      <div class="pic">${Store.picture(p)}</div>
+      <a class="frame" href="/product?id=${p.id}" target="_blank">${art(p)}</a>
       <div>
-        <div style="font-weight:500">${Store.esc(p.name)}</div>
-        <div class="small muted">${Store.money(p.price_cents)}</div>
-        ${p.in_stock ? `<div class="actions">
-          ${p.sizes.length > 1 ? `<select id="pin-size"><option value="">Size</option>${p.sizes.map((s) => `<option>${Store.esc(s)}</option>`).join('')}</select>` : ''}
-          <button class="btn sm accent" id="pin-add">Add to bag</button>
-        </div>
-        <div class="small" id="pin-note"></div>` : '<div class="small">Sold out</div>'}
+        <div class="eyebrow" style="font-size:9px">Wearing now</div>
+        <div class="name">${esc(p.name)}</div>
+        <div class="small muted">${money(p.price_cents)}</div>
+        ${p.in_stock ? `<div class="row">
+          ${p.sizes.length > 1 ? `<select id="pin-size" aria-label="Size"><option value="">Size</option>${p.sizes.map((s) => `<option>${esc(s)}</option>`).join('')}</select>` : ''}
+          <button class="btn" id="pin-add">Add to bag</button>
+        </div><div class="small" id="pin-note" style="margin-top:6px"></div>` : '<div class="small" style="margin-top:6px">Sold out</div>'}
       </div>`;
     $('pin-add')?.addEventListener('click', () => {
       const size = p.sizes.length > 1 ? $('pin-size').value : (p.sizes[0] || '');
-      if (p.sizes.length > 1 && !size) { $('pin-note').textContent = 'Pick a size'; return; }
+      if (p.sizes.length > 1 && !size) { $('pin-note').textContent = 'Choose a size'; return; }
       Store.addToBag(p, size);
-      $('pin-note').innerHTML = 'Added! <a href="/cart.html" target="_blank">Open bag</a>';
+      $('pin-note').innerHTML = 'Added. <button class="text-btn" data-open="bag">View bag</button>';
     });
   }
 
   function addChat(m) {
     const log = $('log');
-    if (log.querySelector('.muted')) log.innerHTML = '';
+    if (!log.querySelector('[data-msg]')) log.innerHTML = '';
     const row = document.createElement('div');
+    row.dataset.msg = '';
     if (m.seller) row.className = 'seller';
-    row.innerHTML = `<b>${Store.esc(m.from)}</b>${Store.esc(m.text)}`;
-    const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 40;
+    row.innerHTML = m.name ? `<b>${esc(m.name)}</b>${esc(m.text)}` : `<span style="opacity:.6">${esc(m.text)}</span>`;
+    const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
     log.append(row);
     if (atBottom) log.scrollTop = log.scrollHeight;
   }
 
-  function send(msg) {
-    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+  function setLive(st) {
+    $('idle').classList.toggle('hidden', st.live);
+    $('badge').classList.toggle('hidden', !st.live);
+    if (st.live) {
+      $('count').textContent = `${st.viewers} watching`;
+      $('title').textContent = st.title;
+      $('sub').innerHTML = '<span class="live-dot"></span>On air now';
+      showPinned(st.pinned);
+    } else {
+      $('sub').textContent = 'Live shopping';
+      $('title').textContent = 'Watch, ask, and buy as we try things on';
+      showPinned(null);
+    }
   }
 
-  function connect() {
-    ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/live-ws`);
-    ws.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
-      switch (msg.type) {
-        case 'status': setLive(msg); break;
-        case 'count': setCount(msg.viewers); break;
-        case 'signal': onSignal(msg.data); break;
-        case 'pin': showPinned(msg.product); break;
-        case 'chat': addChat(msg); break;
-        case 'ended':
-          setLive({ live: false });
-          addChat({ from: '', text: 'The stream has ended. Thanks for watching!' });
-          break;
-        case 'full':
-          $('idle').innerHTML = '<h2>The stream is full</h2><p>Lots of people are watching right now. Try again in a few minutes.</p>';
-          break;
+  async function tick() {
+    let delay = 6000;
+    try {
+      const r = await api(`/live/poll?${new URLSearchParams({ viewer: viewerId || '', after: lastChat })}`);
+      const st = r.status;
+      setLive(st);
+      if (!st.live) {
+        if (wasLive) addChat({ text: 'The stream has ended. Thank you for watching.' });
+        wasLive = false; session = null; viewerId = null;
+        dropVideo();
+      } else {
+        wasLive = true;
+        if (st.session !== session) { session = st.session; lastChat = 0; $('log').innerHTML = ''; await join(); }
+        else if (r.rejoin || (viewerId && !video.srcObject && Date.now() - joinedAt > 15000)) await join();
+        for (const m of r.chat) { addChat(m); lastChat = Math.max(lastChat, m.id); }
+        for (const s of r.signals) if (s.data?.sdp?.type === 'offer') await answer(s.data.sdp);
+        delay = video.srcObject ? 1500 : 700;
       }
-    };
-    ws.onclose = () => {
-      stopVideo();
-      setTimeout(connect, 3000);
-    };
+    } catch (err) {
+      console.warn(err.message);
+    }
+    setTimeout(tick, document.hidden && !wasLive ? 15000 : delay);
   }
 
   $('unmute').addEventListener('click', () => {
@@ -134,15 +144,20 @@
     $('unmute').classList.add('hidden');
   });
 
-  $('chat-form').addEventListener('submit', (e) => {
+  $('chat-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const text = $('text').value.trim();
     if (!text) return;
-    if (!live) { addChat({ from: '', text: 'Chat opens when the stream starts.' }); return; }
-    try { localStorage.setItem('store-chat-name', nameInput.value.trim()); } catch {}
-    send({ type: 'chat', name: nameInput.value.trim(), text });
+    if (!viewerId) { addChat({ text: 'Chat opens when we go live.' }); return; }
+    try { localStorage.setItem('store-chat-name', $('name').value.trim()); } catch {}
     $('text').value = '';
+    try {
+      await api('/live/chat', { method: 'POST', body: { viewer: viewerId, name: $('name').value.trim(), text } });
+    } catch (err) {
+      addChat({ text: err.message });
+      $('text').value = text;
+    }
   });
 
-  connect();
+  tick();
 })();

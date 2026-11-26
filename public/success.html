@@ -4,16 +4,19 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Order confirmed</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <main class="wrap" style="max-width:640px;padding-top:48px;padding-bottom:64px">
-    <div id="out"><p class="muted">Checking your payment...</p></div>
+  <main class="narrow" style="padding-top:clamp(48px,8vw,120px);padding-bottom:clamp(64px,9vw,140px)">
+    <div id="out"><p class="muted">Confirming your payment...</p></div>
   </main>
 
   <script src="/js/common.js"></script>
   <script>
     (async () => {
+      const { esc, money } = Store;
       await Store.chrome('bag');
       const q = new URLSearchParams(location.search);
       const out = document.getElementById('out');
@@ -24,24 +27,23 @@
         if (o.status === 'paid' || o.status === 'shipped') {
           Store.writeBag([]);
           out.innerHTML = `
-            <h1>Thank you!</h1>
-            <p>Order <strong>#${o.id}</strong> is confirmed${o.email ? ` and a receipt is on its way to ${Store.esc(o.email)}` : ''}. We'll pack it up soon.</p>
-            ${o.demo ? '<p class="msg ok">This was a test order, no card was charged.</p>' : ''}
-            <div class="panel" style="margin-top:24px">
-              ${o.items.map((i) => `<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0">
-                <span>${i.quantity} × ${Store.esc(i.name)}${i.size ? ` (${Store.esc(i.size)})` : ''}</span>
-                <span>${Store.money(i.unit_price_cents * i.quantity)}</span></div>`).join('')}
-              <div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:8px;padding-top:10px;font-weight:600">
-                <span>Total</span><span>${Store.money(o.total_cents)}</span></div>
+            <div class="eyebrow">Order no. ${o.id}</div>
+            <h1 style="font-size:clamp(44px,6vw,84px);margin:16px 0 22px">Thank you</h1>
+            <p class="muted">Your order is confirmed${o.email ? ` and a receipt is on its way to ${esc(o.email)}` : ''}. We'll let you know as soon as it ships.</p>
+            ${o.demo ? '<p class="note">This was a test order. No card was charged.</p>' : ''}
+            <div style="margin:40px 0;border-top:1px solid var(--line)">
+              ${o.items.map((i) => `<div class="totals" style="padding:16px 0;border-bottom:1px solid var(--line)">
+                <span>${i.quantity} &times; ${esc(i.name)}${i.size ? `, ${esc(i.size)}` : ''}</span><span>${money(i.unit_price_cents * i.quantity)}</span></div>`).join('')}
+              <div class="totals big" style="padding:20px 0"><span>Total</span><span>${money(o.total_cents)}</span></div>
             </div>
-            <a class="btn" href="/">Keep shopping</a>`;
+            <a class="btn" href="/shop">Continue shopping</a>`;
         } else if (o.status === 'unpaid') {
-          out.innerHTML = `<h1>Payment still processing</h1><p>Your bank hasn't confirmed the payment yet. Refresh this page in a minute. If it doesn't go through you won't be charged.</p>`;
+          out.innerHTML = `<h1 style="font-size:48px;margin-bottom:18px">Almost there</h1><p class="muted">Your bank hasn't confirmed the payment yet. Refresh this page in a minute. If it doesn't go through, you won't be charged.</p>`;
         } else {
-          out.innerHTML = `<h1>We couldn't find that order</h1><p><a href="/">Back to the shop</a></p>`;
+          out.innerHTML = `<h1 style="font-size:48px;margin-bottom:18px">We couldn't find that order</h1><a class="u-link" href="/shop">Back to the shop</a>`;
         }
       } catch (err) {
-        out.innerHTML = `<h1>Hmm, something went wrong</h1><p>${Store.esc(err.message)}</p><p>If you were charged, your order is safe. Just refresh this page.</p>`;
+        out.innerHTML = `<h1 style="font-size:48px;margin-bottom:18px">Something went wrong</h1><p class="muted">${esc(err.message)} If you were charged, your order is safe. Refresh this page to try again.</p>`;
       }
     })();
   </script>

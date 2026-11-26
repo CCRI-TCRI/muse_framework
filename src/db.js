@@ -1,53 +1,68 @@
-const { DatabaseSync } = require('node:sqlite');
-const path = require('node:path');
+// Postgres everywhere. On Vercel (or anywhere DATABASE_URL is set) it talks to a
+// real Postgres server such as Neon. Without one it runs PGlite, a copy of
+// Postgres that lives in the data/ folder, so local development needs no setup.
 const fs = require('node:fs');
 const config = require('./config');
 
-fs.mkdirSync(config.dataDir, { recursive: true });
-const db = new DatabaseSync(path.join(config.dataDir, 'store.db'));
+let backend;
 
-db.exec(`
-  PRAGMA journal_mode = WAL;
-  PRAGMA foreign_keys = ON;
+function connect() {
+  if (backend) return backend;
+  if (config.databaseUrl) {
+    const { Pool } = require('pg');
+    const pool = new Pool({ connectionString: config.databaseUrl, max: 3, idleTimeoutMillis: 10000 });
+    pool.on('error', (err) => console.error('Database connection error:', err.message));
+    backend = { query: (sql, params) => pool.query(sql, params) };
+  } else {
+    if (config.onVercel) throw new Error('No database connected. Add a Postgres database (e.g. Neon) to the Vercel project.');
+    const { PGlite } = require('@electric-sql/pglite');
+    fs.mkdirSync(config.dataDir, { recursive: true });
+    const lite = new PGlite(`${config.dataDir}/pg`);
+    backend = { query: (sql, params) => lite.query(sql, params) };
+  }
+  return backend;
+}
 
+const SCHEMA = `
   CREATE TABLE IF NOT EXISTS products (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    id          SERIAL PRIMARY KEY,
     name        TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
+    details     TEXT NOT NULL DEFAULT '',
     category    TEXT NOT NULL DEFAULT 'Other',
     price_cents INTEGER NOT NULL,
     sizes       TEXT NOT NULL DEFAULT '',
     stock       INTEGER NOT NULL DEFAULT 0,
-    image       TEXT,
-    color       TEXT NOT NULL DEFAULT '#d9cfc1',
-    active      INTEGER NOT NULL DEFAULT 1,
-    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    images      JSONB NOT NULL DEFAULT '[]',
+    color       TEXT NOT NULL DEFAULT '#e7e2da',
+    active      BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
   );
 
   CREATE TABLE IF NOT EXISTS videos (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+    id          SERIAL PRIMARY KEY,
     title       TEXT NOT NULL,
     description TEXT NOT NULL DEFAULT '',
     file        TEXT NOT NULL,
     product_id  INTEGER REFERENCES products(id) ON DELETE SET NULL,
-    created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+    created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
   );
 
   CREATE TABLE IF NOT EXISTS orders (
-    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    id                SERIAL PRIMARY KEY,
     status            TEXT NOT NULL DEFAULT 'pending',
     email             TEXT,
     customer_name     TEXT,
     shipping_address  TEXT,
     total_cents       INTEGER NOT NULL,
     stripe_session_id TEXT,
-    demo              INTEGER NOT NULL DEFAULT 0,
-    created_at        TEXT NOT NULL DEFAULT (datetime('now')),
-    paid_at           TEXT
+    demo              BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at        TIMESTAMPTZ NOT NULL DEFAULT now(),
+    paid_at           TIMESTAMPTZ
   );
 
   CREATE TABLE IF NOT EXISTS order_items (
-    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    id               SERIAL PRIMARY KEY,
     order_id         INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
     product_id       INTEGER,
     name             TEXT NOT NULL,
@@ -55,18 +70,124 @@ db.exec(`
     unit_price_cents INTEGER NOT NULL,
     quantity         INTEGER NOT NULL
   );
-`);
 
-// A few starter pieces so the shop isn't empty the first time you open it.
-// Delete or edit them from the admin area.
-const count = db.prepare('SELECT COUNT(*) AS n FROM products').get().n;
-if (count === 0) {
-  const insert = db.prepare(`INSERT INTO products (name, description, category, price_cents, sizes, stock, color)
-                             VALUES (?, ?, ?, ?, ?, ?, ?)`);
-  insert.run('Heavyweight Boxy Tee', 'Thick 280gsm cotton, dropped shoulders and a cropped boxy cut. Washes soft and keeps its shape.', 'Tops', 3800, 'S,M,L,XL', 40, '#e8e1d6');
-  insert.run('Washed Denim Overshirt', 'Mid-blue denim, stone washed so it already feels worn in. Two chest pockets and horn buttons.', 'Outerwear', 8900, 'S,M,L,XL', 18, '#9fb3c8');
-  insert.run('Pleated Wide Trousers', 'High rise, double pleat, a lot of leg. Wool blend that drapes well and does not crease easily.', 'Bottoms', 7400, '26,28,30,32,34', 22, '#3f3a36');
-  insert.run('Ribbed Knit Beanie', 'Chunky rib knit in a merino blend. One size, folds up or wears slouchy.', 'Accessories', 2400, 'One size', 60, '#b5523b');
+  CREATE TABLE IF NOT EXISTS settings (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS live_state (
+    id         INTEGER PRIMARY KEY DEFAULT 1,
+    session    TEXT,
+    title      TEXT,
+    started_at TIMESTAMPTZ,
+    heartbeat  TIMESTAMPTZ,
+    pinned_id  INTEGER
+  );
+  INSERT INTO live_state (id) VALUES (1) ON CONFLICT DO NOTHING;
+
+  CREATE TABLE IF NOT EXISTS live_viewers (
+    id        TEXT PRIMARY KEY,
+    session   TEXT NOT NULL,
+    last_seen TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+
+  CREATE TABLE IF NOT EXISTS live_signals (
+    id         SERIAL PRIMARY KEY,
+    session    TEXT NOT NULL,
+    to_id      TEXT NOT NULL,
+    from_id    TEXT NOT NULL,
+    payload    JSONB NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+  CREATE INDEX IF NOT EXISTS live_signals_to ON live_signals (to_id);
+
+  CREATE TABLE IF NOT EXISTS live_chat (
+    id         SERIAL PRIMARY KEY,
+    session    TEXT NOT NULL,
+    viewer_id  TEXT,
+    name       TEXT NOT NULL,
+    text       TEXT NOT NULL,
+    seller     BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+  );
+`;
+
+// Starter pieces so the shop isn't empty the first time. Delete or edit them in the admin.
+const STARTERS = [
+  ['The Long Wool Coat', 'Outerwear', 42000, 'XS,S,M,L,XL', 12, '#cfc6b8',
+    'A floor-skimming coat cut from double-faced Italian wool. Dropped shoulders, a wide notch lapel and deep side pockets. Unlined, so it drapes rather than stands.',
+    '80% virgin wool, 20% cashmere\nUnlined, hand-finished seams\nDry clean only\nMade in Portugal'],
+  ['Cashmere Crew Knit', 'Knitwear', 29000, 'XS,S,M,L,XL', 20, '#e4dccf',
+    'Twelve-gauge Mongolian cashmere knitted to a relaxed, slightly boxy shape. Ribbed collar, cuffs and hem. Soft from the first wear.',
+    '100% grade-A cashmere\nHand wash cold, dry flat\nMade in Scotland'],
+  ['Pleated Wide-Leg Trouser', 'Trousers', 24000, '24,26,28,30,32,34', 18, '#3b3834',
+    'High rise with a deep double pleat and a full leg that breaks softly over the shoe. The wool blend holds a crease and sheds wrinkles.',
+    '70% wool, 28% polyester, 2% elastane\nSide adjusters, no belt loops\nDry clean\nMade in Italy'],
+  ['Silk Slip Dress', 'Dresses', 31000, 'XS,S,M,L', 9, '#b9a48a',
+    'Bias-cut sandwashed silk with fine adjustable straps. Falls to mid-calf. Wear it alone in summer or over a knit when it cools down.',
+    '100% mulberry silk, 22 momme\nCool hand wash or dry clean\nMade in Portugal'],
+  ['Heavyweight Boxy Tee', 'Tops', 8500, 'XS,S,M,L,XL', 40, '#efebe4',
+    'Dense 300gsm cotton jersey, garment dyed so every piece is slightly different. Cropped and boxy with a narrow ribbed neck.',
+    '100% organic cotton\nMachine wash cold, hang dry\nMade in Portugal'],
+  ['Relaxed Linen Shirt', 'Tops', 18000, 'XS,S,M,L,XL', 22, '#d7d9d2',
+    'Washed Irish linen in an easy, slightly oversized fit. Mother-of-pearl buttons and a soft camp collar.',
+    '100% linen\nMachine wash cold\nMade in Lithuania'],
+  ['Leather Day Tote', 'Accessories', 36000, '', 7, '#7a5a43',
+    'Vegetable-tanned leather that darkens and softens with use. Big enough for a laptop, with an inner zip pocket and raw painted edges.',
+    'Full-grain vegetable-tanned leather\n40 x 32 x 12 cm\nMade in Spain'],
+  ['Ribbed Merino Beanie', 'Accessories', 9500, '', 30, '#8c8f86',
+    'Chunky rib in extra-fine merino. Fold the cuff or wear it slouched.',
+    '100% extra-fine merino wool\nHand wash cold\nMade in Ireland'],
+];
+
+const DEFAULT_SETTINGS = {
+  announcement: 'Complimentary shipping on orders over $250 · Free returns within 30 days',
+  hero_kicker: 'Autumn / Winter',
+  hero_title: 'Quiet clothes, made slowly',
+  hero_text: 'Natural fibres, small runs and cuts that last for years. Every new piece is tried on live before it goes on sale.',
+  hero_media: '',
+  hero_media_type: '',
+  shipping_info: 'Orders ship within two working days, tracked and insured. Free returns within 30 days of delivery, as long as items are unworn with their tags on.',
+  about: 'A small studio making considered everyday clothes from natural fibres, in limited runs.',
+  instagram: '',
+};
+
+let ready;
+function init() {
+  if (!ready) {
+    ready = (async () => {
+      const db = connect();
+      for (const stmt of SCHEMA.split(';').map((s) => s.trim()).filter(Boolean)) await db.query(stmt);
+      const { rows } = await db.query('SELECT COUNT(*)::int AS n FROM products');
+      if (rows[0].n === 0) {
+        // Inserted in reverse so the first starter shows first (newest first).
+        for (const [name, category, price, sizes, stock, color, description, details] of [...STARTERS].reverse()) {
+          await db.query(`INSERT INTO products (name, category, price_cents, sizes, stock, color, description, details)
+                          VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`, [name, category, price, sizes, stock, color, description, details]);
+        }
+      }
+      for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
+        await db.query('INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT DO NOTHING', [key, value]);
+      }
+    })().catch((err) => { ready = null; throw err; });
+  }
+  return ready;
 }
 
-module.exports = db;
+async function query(sql, params = []) {
+  await init();
+  const res = await connect().query(sql, params);
+  return res.rows;
+}
+
+async function one(sql, params) {
+  return (await query(sql, params))[0] || null;
+}
+
+async function getSettings() {
+  const rows = await query('SELECT key, value FROM settings');
+  return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+}
+
+module.exports = { query, one, init, getSettings, SETTING_KEYS: Object.keys(DEFAULT_SETTINGS) };

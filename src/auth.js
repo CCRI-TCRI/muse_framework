@@ -37,14 +37,14 @@ function isAdminRequest(req) {
 }
 
 function passwordMatches(attempt) {
-  if (typeof attempt !== 'string') return false;
+  if (typeof attempt !== 'string' || !config.adminPassword) return false;
   const a = crypto.createHash('sha256').update(attempt).digest();
   const b = crypto.createHash('sha256').update(config.adminPassword).digest();
   return crypto.timingSafeEqual(a, b);
 }
 
-function setLoginCookie(res) {
-  const secure = config.publicUrl.startsWith('https://') ? '; Secure' : '';
+function setLoginCookie(req, res) {
+  const secure = req.secure ? '; Secure' : '';
   res.setHeader('Set-Cookie',
     `${COOKIE}=${makeToken()}; HttpOnly; SameSite=Lax; Path=/; Max-Age=${MAX_AGE_MS / 1000}${secure}`);
 }
@@ -58,7 +58,8 @@ function requireAdmin(req, res, next) {
   res.status(401).json({ error: 'Please log in again.' });
 }
 
-// Tiny brute force guard for the login form: 8 tries per IP per 15 minutes.
+// Brute force guard for the login form: 8 tries per IP per 15 minutes.
+// On Vercel this is per server instance, so treat it as a speed bump.
 const attempts = new Map();
 function loginRateLimit(req, res, next) {
   const now = Date.now();

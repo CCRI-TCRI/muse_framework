@@ -1,13 +1,20 @@
-// The "Go live" tab. Your camera goes straight to each viewer's browser over WebRTC.
+// The "Go live" tab. Video goes straight from this device to each viewer over
+// WebRTC; the server just passes the setup messages and chat along.
 document.addEventListener('admin:ready', async () => {
   const $ = (id) => document.getElementById(id);
+  const { api, esc } = Store;
   const cfg = await Store.config();
   const preview = $('preview');
   const peers = new Map(); // viewer id -> RTCPeerConnection
-  let stream = null, ws = null, isLive = false, recorder = null, chunks = [];
+  let stream = null;
+  let session = null;
+  let lastChat = 0;
+  let timer = null;
+  let recorder = null;
+  let chunks = [];
 
   function err(msg) {
-    $('studio-error').textContent = msg;
+    $('studio-error').textContent = msg || '';
     $('studio-error').classList.toggle('hidden', !msg);
   }
 
@@ -16,38 +23,32 @@ document.addEventListener('admin:ready', async () => {
     err('');
     try {
       const next = await navigator.mediaDevices.getUserMedia({
-        video: deviceId ? { deviceId: { exact: deviceId }, width: { ideal: 1280 }, height: { ideal: 720 } }
-                        : { facingMode: 'user', width: { ideal: 1280 }, height: { ideal: 720 } },
+        video: { ...(deviceId ? { deviceId: { exact: deviceId } } : { facingMode: 'user' }), width: { ideal: 1280 }, height: { ideal: 720 } },
         audio: { echoCancellation: true, noiseSuppression: true },
       });
-      // Swap the tracks for anyone already watching so they don't drop off.
+      // Swap tracks for anyone already watching so nobody drops off.
       for (const pc of peers.values()) {
         for (const sender of pc.getSenders()) {
           const track = next.getTracks().find((t) => t.kind === sender.track?.kind);
           if (track) sender.replaceTrack(track);
         }
       }
-      if (stream) stream.getTracks().forEach((t) => t.stop());
+      stream?.getTracks().forEach((t) => t.stop());
       stream = next;
       preview.srcObject = stream;
       $('studio-idle').classList.add('hidden');
-      $('go-live').disabled = isLive;
+      $('go-live').disabled = !!session;
       $('cam-on').classList.add('hidden');
       $('mic-toggle').classList.remove('hidden');
-      await listCameras();
+      const cams = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
+      const current = stream.getVideoTracks()[0]?.getSettings().deviceId;
+      $('cam-select').classList.toggle('hidden', cams.length < 2);
+      $('cam-select').innerHTML = cams.map((c, i) => `<option value="${esc(c.deviceId)}" ${c.deviceId === current ? 'selected' : ''}>${esc(c.label || `Camera ${i + 1}`)}</option>`).join('');
     } catch (e) {
       err(e.name === 'NotAllowedError'
-        ? 'The browser blocked the camera. Allow camera and microphone access for this site and try again.'
+        ? 'The browser blocked the camera. Allow camera and microphone for this site, then try again.'
         : `Couldn't open the camera: ${e.message}`);
     }
-  }
-
-  async function listCameras() {
-    const cams = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput');
-    const sel = $('cam-select');
-    sel.classList.toggle('hidden', cams.length < 2);
-    const current = stream.getVideoTracks()[0]?.getSettings().deviceId;
-    sel.innerHTML = cams.map((c, i) => `<option value="${c.deviceId}" ${c.deviceId === current ? 'selected' : ''}>${Store.esc(c.label || `Camera ${i + 1}`)}</option>`).join('');
   }
 
   $('cam-on').addEventListener('click', () => openCamera());
@@ -58,24 +59,27 @@ document.addEventListener('admin:ready', async () => {
     track.enabled = !track.enabled;
     $('mic-toggle').textContent = track.enabled ? 'Mute mic' : 'Unmute mic';
   });
-
   if (!navigator.mediaDevices?.getUserMedia) {
-    err('This browser cannot use the camera here. Use a recent Chrome, Safari or Firefox, and make sure the site is on https.');
+    err('This browser cannot use the camera here. Use a recent Chrome, Safari or Firefox on an https address.');
     $('cam-on').disabled = true;
   }
 
-  /* ----- connections to viewers ----- */
-  function send(msg) {
-    if (ws && ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify(msg));
+  /* ----- viewers ----- */
+  function gathered(pc) {
+    if (pc.iceGatheringState === 'complete') return Promise.resolve();
+    return new Promise((resolve) => {
+      const done = () => { if (pc.iceGatheringState === 'complete') { pc.removeEventListener('icegatheringstatechange', done); resolve(); } };
+      pc.addEventListener('icegatheringstatechange', done);
+      setTimeout(resolve, 2500);
+    });
   }
 
-  async function addViewer(id) {
-    peers.get(id)?.close();
+  async function offerTo(viewerId) {
+    peers.get(viewerId)?.close();
     const pc = new RTCPeerConnection({ iceServers: cfg.iceServers });
-    peers.set(id, pc);
+    peers.set(viewerId, pc);
     stream.getTracks().forEach((t) => pc.addTrack(t, stream));
-
-    // Cap video quality per viewer so one upload can feed more people.
+    // Cap quality per viewer so one upload connection can feed more people.
     for (const sender of pc.getSenders()) {
       if (sender.track?.kind !== 'video') continue;
       const params = sender.getParameters();
@@ -83,96 +87,91 @@ document.addEventListener('admin:ready', async () => {
       params.encodings[0].maxBitrate = 1_200_000;
       sender.setParameters(params).catch(() => {});
     }
-
-    pc.onicecandidate = (e) => { if (e.candidate) send({ type: 'signal', to: id, data: { candidate: e.candidate } }); };
     pc.onconnectionstatechange = () => {
-      if (['failed', 'closed'].includes(pc.connectionState)) { pc.close(); peers.delete(id); }
+      if (['failed', 'closed', 'disconnected'].includes(pc.connectionState) && peers.get(viewerId) === pc) {
+        setTimeout(() => { if (pc.connectionState !== 'connected') { pc.close(); peers.delete(viewerId); } }, 5000);
+      }
     };
-    const offer = await pc.createOffer();
-    await pc.setLocalDescription(offer);
-    send({ type: 'signal', to: id, data: { sdp: pc.localDescription } });
-  }
-
-  async function onSignal(from, data) {
-    const pc = peers.get(from);
-    if (!pc) return;
-    if (data.sdp) await pc.setRemoteDescription(data.sdp);
-    else if (data.candidate) { try { await pc.addIceCandidate(data.candidate); } catch {} }
+    await pc.setLocalDescription(await pc.createOffer());
+    await gathered(pc);
+    await api('/admin/live/signal', { method: 'POST', body: { session, to: viewerId, data: { sdp: pc.localDescription } } });
   }
 
   function addChat(m) {
     const log = $('studio-log');
-    if (log.querySelector('.muted')) log.innerHTML = '';
+    if (!log.querySelector('[data-msg]')) log.innerHTML = '';
     const row = document.createElement('div');
+    row.dataset.msg = '';
     if (m.seller) row.className = 'seller';
-    row.innerHTML = `<b>${Store.esc(m.from)}</b>${Store.esc(m.text)}`;
+    row.innerHTML = `<b>${esc(m.name)}</b>${esc(m.text)}`;
     log.append(row);
     log.scrollTop = log.scrollHeight;
   }
 
+  async function tick() {
+    if (!session) return;
+    try {
+      const r = await api(`/admin/live/poll?${new URLSearchParams({ session, after: lastChat })}`);
+      if (r.ended) { err('This stream was ended from another tab or device.'); wrapUp(); return; }
+      $('studio-count').textContent = `${r.viewers} watching`;
+      for (const m of r.chat) { addChat(m); lastChat = Math.max(lastChat, m.id); }
+      for (const s of r.signals) {
+        if (s.type === 'join') offerTo(s.from).catch((e) => console.warn(e));
+        else if (s.data?.sdp?.type === 'answer') peers.get(s.from)?.setRemoteDescription(s.data.sdp).catch((e) => console.warn(e));
+      }
+    } catch (e) {
+      console.warn(e.message);
+    }
+    timer = setTimeout(tick, 1000);
+  }
+
   /* ----- going live ----- */
-  $('go-live').addEventListener('click', () => {
+  $('go-live').addEventListener('click', async () => {
     if (!stream) return;
     err('');
     $('go-live').disabled = true;
-    ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/live-ws?role=seller`);
-
-    ws.onopen = () => {
-      send({ type: 'start', title: $('stream-title').value.trim() || 'Live now' });
-      if ($('pin-select').value) send({ type: 'pin', productId: $('pin-select').value });
-      isLive = true;
-      $('studio-badge').classList.remove('hidden');
-      $('studio-count').classList.remove('hidden');
-      $('end-live').classList.remove('hidden');
-      $('go-live').classList.add('hidden');
-      $('stream-title').disabled = true;
-      $('studio-log').innerHTML = '<div class="muted small">You are live. Viewer messages show up here.</div>';
-      startRecording();
-    };
-
-    ws.onmessage = (e) => {
-      const msg = JSON.parse(e.data);
-      switch (msg.type) {
-        case 'viewer-ready': addViewer(msg.id); break;
-        case 'viewer-left': peers.get(msg.id)?.close(); peers.delete(msg.id); break;
-        case 'signal': onSignal(msg.from, msg.data); break;
-        case 'count': case 'hello': $('studio-count').textContent = `${msg.viewers} watching`; break;
-        case 'chat': addChat(msg); break;
-        case 'replaced': err('The stream was taken over by another tab or device.'); break;
-      }
-    };
-
-    ws.onclose = (e) => {
-      if (isLive) wrapUp();
-      else {
-        err(e.code === 1006 ? 'Could not start the stream. Try logging out and in again.' : '');
-        $('go-live').disabled = false;
-      }
-    };
+    try {
+      ({ session } = await api('/admin/live/start', { method: 'POST', body: { title: $('stream-title').value.trim() } }));
+      lastChat = 0;
+      if ($('pin-select').value) await api('/admin/live/pin', { method: 'POST', body: { productId: $('pin-select').value } });
+    } catch (e) {
+      err(`Couldn't start the stream: ${e.message}`);
+      $('go-live').disabled = false;
+      return;
+    }
+    $('studio-badge').classList.remove('hidden');
+    $('end-live').classList.remove('hidden');
+    $('go-live').classList.add('hidden');
+    $('stream-title').disabled = true;
+    $('studio-log').innerHTML = '<div class="small" style="opacity:.55">You are live. Messages from viewers show up here.</div>';
+    startRecording();
+    tick();
   });
 
-  $('end-live').addEventListener('click', () => {
+  $('end-live').addEventListener('click', async () => {
     if (!confirm('End the stream for everyone?')) return;
-    send({ type: 'stop' });
-    ws.close();
+    await api('/admin/live/stop', { method: 'POST' }).catch(() => {});
+    wrapUp();
   });
 
-  $('pin-select').addEventListener('change', (e) => send({ type: 'pin', productId: e.target.value }));
+  $('pin-select').addEventListener('change', (e) => {
+    if (session) api('/admin/live/pin', { method: 'POST', body: { productId: e.target.value } }).catch((x) => err(x.message));
+  });
 
-  $('studio-chat').addEventListener('submit', (e) => {
+  $('studio-chat').addEventListener('submit', async (e) => {
     e.preventDefault();
     const text = $('studio-text').value.trim();
-    if (!text || !isLive) return;
-    send({ type: 'chat', text });
+    if (!text || !session) return;
     $('studio-text').value = '';
+    await api('/admin/live/chat', { method: 'POST', body: { session, text } }).catch((x) => err(x.message));
   });
 
   function wrapUp() {
-    isLive = false;
+    session = null;
+    clearTimeout(timer);
     for (const pc of peers.values()) pc.close();
     peers.clear();
     $('studio-badge').classList.add('hidden');
-    $('studio-count').classList.add('hidden');
     $('end-live').classList.add('hidden');
     $('go-live').classList.remove('hidden');
     $('go-live').disabled = !stream;
@@ -180,43 +179,39 @@ document.addEventListener('admin:ready', async () => {
     stopRecording();
   }
 
-  /* ----- replay recording ----- */
+  /* ----- replay ----- */
   function startRecording() {
     chunks = [];
+    recorder = null;
     if (!$('record').checked || typeof MediaRecorder === 'undefined') return;
-    const type = ['video/mp4;codecs=avc1,mp4a', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm']
-      .find((t) => MediaRecorder.isTypeSupported(t));
+    const type = ['video/mp4;codecs=avc1,mp4a', 'video/mp4', 'video/webm;codecs=vp9,opus', 'video/webm'].find((t) => MediaRecorder.isTypeSupported(t));
     try {
       recorder = new MediaRecorder(stream, type ? { mimeType: type, videoBitsPerSecond: 2_500_000 } : undefined);
-    } catch { recorder = null; return; }
+    } catch { return; }
     recorder.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
     recorder.start(5000);
   }
 
   function stopRecording() {
     if (!recorder || recorder.state === 'inactive') return;
-    const title = $('stream-title').value.trim() || 'Live stream';
-    recorder.onstop = async () => {
-      const type = recorder.mimeType.split(';')[0] || 'video/webm';
+    const title = $('stream-title').value.trim() || 'Live session';
+    const rec = recorder;
+    rec.onstop = async () => {
+      const type = rec.mimeType.split(';')[0] || 'video/webm';
       const blob = new Blob(chunks, { type });
-      recorder = null;
       chunks = [];
       if (blob.size < 50_000) return;
-      const fd = new FormData();
-      fd.append('video', new File([blob], `replay.${type.includes('mp4') ? 'mp4' : 'webm'}`, { type }));
-      fd.append('title', `Replay: ${title}`);
-      fd.append('description', `Recorded live on ${new Date().toLocaleDateString()}`);
+      const file = new File([blob], `replay-${Date.now()}.${type.includes('mp4') ? 'mp4' : 'webm'}`, { type });
       try {
-        await Admin.uploadVideo(fd, $('replay-progress'));
-        addChat({ from: 'Studio', text: 'Replay saved to Videos.', seller: true });
+        await Admin.addFilm({ file, title: `Replay: ${title}`, description: `Recorded live on ${new Date().toLocaleDateString()}` }, $('replay-progress'));
+        addChat({ name: 'Studio', text: 'Replay saved to Films.', seller: true });
       } catch (e) {
         err(`The replay didn't save: ${e.message}`);
       }
     };
-    recorder.stop();
+    rec.stop();
+    recorder = null;
   }
 
-  window.addEventListener('beforeunload', (e) => {
-    if (isLive) { e.preventDefault(); e.returnValue = ''; }
-  });
+  addEventListener('beforeunload', (e) => { if (session) { e.preventDefault(); e.returnValue = ''; } });
 });

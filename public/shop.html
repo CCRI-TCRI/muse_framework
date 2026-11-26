@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shop</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <header class="shop-head">
+      <div class="eyebrow" id="count"></div>
+      <h1 id="heading">All pieces</h1>
+    </header>
+    <div class="toolbar">
+      <div class="cats" id="cats"></div>
+      <select id="sort" aria-label="Sort">
+        <option value="new">Newest</option>
+        <option value="low">Price, low to high</option>
+        <option value="high">Price, high to low</option>
+      </select>
+    </div>
+    <div class="grid" id="grid" style="padding-bottom:120px"></div>
+  </main>
+
+  <script src="/js/common.js"></script>
+  <script>
+    (async () => {
+      await Store.chrome('shop');
+      const products = await Store.products();
+      const params = new URLSearchParams(location.search);
+      let current = params.get('category') || 'All';
+      const cats = ['All', ...new Set(products.map((p) => p.category))];
+      if (!cats.includes(current)) current = 'All';
+
+      function draw() {
+        const sort = document.getElementById('sort').value;
+        let list = products.filter((p) => current === 'All' || p.category === current);
+        if (sort === 'low') list = [...list].sort((a, b) => a.price_cents - b.price_cents);
+        if (sort === 'high') list = [...list].sort((a, b) => b.price_cents - a.price_cents);
+        document.getElementById('heading').textContent = current === 'All' ? 'All pieces' : current;
+        document.getElementById('count').textContent = `${list.length} ${list.length === 1 ? 'piece' : 'pieces'}`;
+        document.getElementById('cats').innerHTML = cats.map((c) => `<button class="${c === current ? 'on' : ''}" data-cat="${Store.esc(c)}">${Store.esc(c)}</button>`).join('');
+        document.getElementById('grid').innerHTML = list.map(Store.card).join('') || '<p class="muted">Nothing here yet.</p>';
+        Store.reveal();
+      }
+
+      document.getElementById('cats').addEventListener('click', (e) => {
+        const b = e.target.closest('[data-cat]');
+        if (!b) return;
+        current = b.dataset.cat;
+        history.replaceState(null, '', current === 'All' ? '/shop' : `/shop?category=${encodeURIComponent(current)}`);
+        draw();
+      });
+      document.getElementById('sort').addEventListener('change', draw);
+      draw();
+    })();
+  </script>
+</body>
+</html>

@@ -4,34 +4,40 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Live</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <main class="wrap">
-    <div class="live-layout">
-      <section>
-        <div class="stage" id="stage">
+  <main>
+    <section class="theater">
+      <div class="wrap">
+        <div class="stage">
           <video id="video" autoplay playsinline muted class="hidden"></video>
-          <span class="badge hidden" id="badge">LIVE</span>
-          <span class="count hidden" id="count"></span>
+          <div class="badge hidden" id="badge"><span class="on-air">Live</span><span id="count">0 watching</span></div>
+          <button class="btn light sm sound hidden" id="unmute">Tap for sound</button>
           <div class="idle" id="idle">
-            <h2>We're not live right now</h2>
-            <p>Leave this page open and the stream will start here on its own. In the meantime, have a look at <a href="/videos.html" style="color:#fff">past videos</a>.</p>
+            <div class="eyebrow">Live try-ons</div>
+            <h2>We're off air</h2>
+            <p class="small" style="color:rgba(236,232,225,.7)">Keep this page open and the next session will start here by itself. Until then, have a look at our <a class="u-link" href="/videos">films</a>.</p>
           </div>
-          <button class="btn sm hidden" id="unmute" style="position:absolute;top:48px;right:12px;z-index:4">Tap for sound</button>
           <div class="pinned hidden" id="pinned"></div>
         </div>
-        <h1 id="title" style="font-size:1.6rem;margin-top:16px"></h1>
-      </section>
-      <aside class="chat">
-        <div class="log" id="log"><div class="muted small">Chat opens when the stream starts.</div></div>
-        <form id="chat-form">
-          <input id="name" placeholder="Name" maxlength="30" style="max-width:90px">
-          <input id="text" placeholder="Say something" maxlength="300" autocomplete="off">
-          <button class="btn sm">Send</button>
-        </form>
-      </aside>
-    </div>
+        <aside class="chat">
+          <div class="chat-head eyebrow">Chat</div>
+          <div class="log" id="log"><div class="small" style="opacity:.55">Chat opens when we go live.</div></div>
+          <form id="chat-form">
+            <input id="name" placeholder="Name" maxlength="30" aria-label="Your name">
+            <input id="text" placeholder="Ask a question" maxlength="300" autocomplete="off" aria-label="Message">
+            <button class="btn sm">Send</button>
+          </form>
+        </aside>
+      </div>
+    </section>
+    <section class="wrap stream-title">
+      <div class="eyebrow" id="sub">Live shopping</div>
+      <h1 id="title">Watch, ask, and buy as we try things on</h1>
+    </section>
   </main>
 
   <script src="/js/common.js"></script>

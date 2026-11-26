@@ -3,25 +3,36 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 const envFile = path.join(__dirname, '..', '.env');
-if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
+if (fs.existsSync(envFile) && typeof process.loadEnvFile === 'function') process.loadEnvFile(envFile);
 
 const env = process.env;
+const onVercel = !!env.VERCEL;
 
-let adminPassword = env.ADMIN_PASSWORD;
+// On Vercel every request can land on a fresh server, so a random password
+// would change constantly. There the password has to come from the settings.
+let adminPassword = env.ADMIN_PASSWORD || '';
 let generatedPassword = false;
-if (!adminPassword) {
+if (!adminPassword && !onVercel) {
   adminPassword = crypto.randomBytes(6).toString('hex');
   generatedPassword = true;
 }
 
+const sessionSecret = env.SESSION_SECRET
+  || crypto.createHash('sha256').update(`store-session:${adminPassword}`).digest('hex');
+
 module.exports = {
+  onVercel,
   port: Number(env.PORT) || 3000,
   storeName: env.STORE_NAME || 'Muse Wear',
-  publicUrl: (env.PUBLIC_URL || `http://localhost:${env.PORT || 3000}`).replace(/\/$/, ''),
+  publicUrl: (env.PUBLIC_URL || '').replace(/\/$/, ''),
   currency: (env.CURRENCY || 'usd').toLowerCase(),
+  shipCountries: (env.SHIP_COUNTRIES || 'US,CA,GB,IE,AU,NZ,DE,FR,NL,BE,ES,IT,SE,DK,NO,FI,AT,CH,PT')
+    .split(',').map((c) => c.trim().toUpperCase()).filter(Boolean),
   adminPassword,
   generatedPassword,
-  sessionSecret: env.SESSION_SECRET || crypto.randomBytes(32).toString('hex'),
+  sessionSecret,
+  databaseUrl: env.DATABASE_URL || env.POSTGRES_URL || '',
+  blobToken: env.BLOB_READ_WRITE_TOKEN || '',
   stripeSecretKey: env.STRIPE_SECRET_KEY || '',
   stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET || '',
   turn: env.TURN_URL

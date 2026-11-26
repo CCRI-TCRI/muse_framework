@@ -2,19 +2,25 @@
   "name": "muse-store",
   "version": "1.0.0",
   "private": true,
-  "description": "Online clothing store with card payments, video uploads and live selling.",
+  "description": "Designer clothing store with card payments, video uploads and live selling. Runs locally or on Vercel.",
   "main": "server.js",
   "scripts": {
-    "start": "node --disable-warning=ExperimentalWarning server.js",
-    "dev": "node --disable-warning=ExperimentalWarning --watch server.js"
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "bundle-blob-client": "esbuild scripts/blob-client-entry.js --bundle --format=esm --platform=browser --minify --outfile=public/js/vendor/blob-client.js"
   },
   "engines": {
-    "node": ">=22.5.0"
+    "node": ">=20"
   },
   "dependencies": {
+    "@electric-sql/pglite": "0.3.7",
+    "@vercel/blob": "1.1.1",
     "express": "4.21.2",
     "multer": "2.0.2",
-    "stripe": "17.7.0",
-    "ws": "8.18.3"
+    "pg": "8.16.3",
+    "stripe": "17.7.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.25.9"
   }
 }

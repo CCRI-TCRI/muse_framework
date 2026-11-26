@@ -4,22 +4,25 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Your bag</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
   <main class="wrap">
-    <div class="bag-layout">
+    <div class="bag-page">
       <section>
         <h1>Your bag</h1>
-        <div id="cancelled" class="msg err hidden">Payment was cancelled, nothing was charged. Your bag is still here.</div>
+        <div id="cancelled" class="note hidden">Payment was cancelled and nothing was charged. Your bag is just as you left it.</div>
         <div id="lines"></div>
       </section>
       <aside class="summary" id="summary">
-        <div class="total"><span>Subtotal</span><span id="total">0</span></div>
-        <div class="small muted">Shipping and any tax are worked out on the next step.</div>
-        <div id="error" class="msg err hidden"></div>
-        <button class="btn block accent" id="checkout">Checkout</button>
-        <div class="small muted">Payments are handled securely by Stripe. Cards, Apple Pay and Google Pay all work.</div>
+        <div class="eyebrow">Summary</div>
+        <div class="totals"><span>Subtotal</span><span id="total"></span></div>
+        <div class="totals muted small"><span>Shipping</span><span>At checkout</span></div>
+        <div class="note err hidden" id="error"></div>
+        <button class="btn block" id="checkout">Checkout</button>
+        <div class="small muted">Payments are handled securely by Stripe. Cards, Apple Pay and Google Pay are accepted.</div>
       </aside>
     </div>
   </main>
@@ -29,69 +32,17 @@
     (async () => {
       await Store.chrome('bag');
       if (new URLSearchParams(location.search).get('cancelled')) document.getElementById('cancelled').classList.remove('hidden');
-
-      const linesEl = document.getElementById('lines');
-      const summary = document.getElementById('summary');
-      const errorEl = document.getElementById('error');
+      const lines = document.getElementById('lines');
 
       function draw() {
         const items = Store.readBag();
-        summary.classList.toggle('hidden', items.length === 0);
-        if (!items.length) {
-          linesEl.innerHTML = '<p class="empty">Your bag is empty. <a href="/">Go find something nice</a></p>';
-          return;
-        }
-        linesEl.innerHTML = items.map((i, n) => `
-          <div class="line">
-            <div class="pic">${Store.picture(i)}</div>
-            <div>
-              <div><a href="/product.html?id=${i.id}">${Store.esc(i.name)}</a></div>
-              ${i.size ? `<div class="small muted">Size ${Store.esc(i.size)}</div>` : ''}
-              <div class="qty">
-                <button data-n="${n}" data-d="-1" aria-label="One less">−</button>
-                <span>${i.qty}</span>
-                <button data-n="${n}" data-d="1" aria-label="One more">+</button>
-              </div>
-            </div>
-            <div style="text-align:right">
-              <div>${Store.money(i.price_cents * i.qty)}</div>
-              <button class="link-btn" data-remove="${n}">Remove</button>
-            </div>
-          </div>`).join('');
-        document.getElementById('total').textContent = Store.money(items.reduce((s, i) => s + i.price_cents * i.qty, 0));
+        document.getElementById('summary').classList.toggle('hidden', !items.length);
+        lines.innerHTML = items.length ? Store.bagLines(items)
+          : '<div class="empty" style="text-align:left;padding:30px 0"><p class="muted">There is nothing in your bag yet.</p><a class="btn ghost" href="/shop">Shop the collection</a></div>';
+        document.getElementById('total').textContent = Store.money(Store.subtotal(items));
       }
-
-      linesEl.addEventListener('click', (e) => {
-        const items = Store.readBag();
-        const q = e.target.closest('[data-d]');
-        const r = e.target.closest('[data-remove]');
-        if (q) {
-          const item = items[q.dataset.n];
-          item.qty = Math.max(1, Math.min(20, item.qty + Number(q.dataset.d)));
-        } else if (r) {
-          items.splice(r.dataset.remove, 1);
-        } else return;
-        Store.writeBag(items);
-        draw();
-      });
-
-      document.getElementById('checkout').addEventListener('click', async (e) => {
-        const btn = e.currentTarget;
-        btn.disabled = true;
-        btn.textContent = 'Taking you to payment...';
-        errorEl.classList.add('hidden');
-        try {
-          const items = Store.readBag().map(({ id, size, qty }) => ({ id, size, qty }));
-          const { url } = await Store.api('/checkout', { method: 'POST', body: { items } });
-          location.href = url;
-        } catch (err) {
-          errorEl.textContent = err.message;
-          errorEl.classList.remove('hidden');
-          btn.disabled = false;
-          btn.textContent = 'Checkout';
-        }
-      });
-
+      lines.addEventListener('click', (e) => { if (Store.bagClicks(e)) draw(); });
+      document.getElementById('checkout').addEventListener('click', (e) => Store.checkout(e.currentTarget, document.getElementById('error')));
       draw();
     })();
   </script>

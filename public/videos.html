@@ -3,37 +3,40 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Videos</title>
+  <title>Films</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
   <main class="wrap">
-    <section class="hero">
-      <h1>Videos</h1>
-      <p>Try-ons, close ups of the fabric and replays from past live streams.</p>
-    </section>
-    <div class="video-grid" id="list"></div>
+    <header class="shop-head">
+      <div class="eyebrow">On film</div>
+      <h1>Films</h1>
+      <p class="muted" style="max-width:460px;margin:18px auto 0">Try-ons, fabric close-ups and replays of past live sessions.</p>
+    </header>
+    <div class="films" id="list" style="padding:30px 0 120px"></div>
   </main>
 
   <script src="/js/common.js"></script>
   <script>
     (async () => {
+      const { esc, money } = Store;
       await Store.chrome('videos');
       const videos = await Store.api('/videos');
       const list = document.getElementById('list');
       list.innerHTML = videos.length ? videos.map((v) => `
-        <div class="video-card">
-          <video src="${Store.esc(v.file)}" controls playsinline preload="metadata"></video>
-          <h3>${Store.esc(v.title)}</h3>
-          ${v.description ? `<div class="small muted">${Store.esc(v.description)}</div>` : ''}
-          ${v.product_name ? `<div class="small" style="margin-top:4px"><a href="/product.html?id=${v.product_id}">Shop the ${Store.esc(v.product_name)}, ${Store.money(v.product_price)}</a></div>` : ''}
+        <div class="film reveal">
+          <video src="${esc(v.file)}" controls playsinline preload="metadata"></video>
+          <div class="cap">
+            <h3>${esc(v.title)}</h3>
+            ${v.description ? `<div class="small muted">${esc(v.description)}</div>` : ''}
+            ${v.product_name ? `<a class="u-link small" href="/product?id=${v.product_id}">Shop the ${esc(v.product_name)}, ${money(v.product_price)}</a>` : ''}
+          </div>
         </div>`).join('')
-        : '<p class="empty">No videos yet. Check back soon.</p>';
-
-      // Only one video plays at a time.
-      list.addEventListener('play', (e) => {
-        list.querySelectorAll('video').forEach((v) => { if (v !== e.target) v.pause(); });
-      }, true);
+        : '<div class="empty" style="grid-column:1/-1"><p class="muted">No films yet. Check back soon.</p></div>';
+      list.addEventListener('play', (e) => list.querySelectorAll('video').forEach((v) => { if (v !== e.target) v.pause(); }), true);
+      Store.reveal();
     })();
   </script>
 </body>
