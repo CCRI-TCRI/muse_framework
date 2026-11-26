@@ -215,9 +215,11 @@
       const min = pad + w / 2, max = bar.clientWidth - pad - w / 2;
       x = Math.max(min, Math.min(max, x));
       const left = x - w / 2;
+      // Only the left edge comes from the bar. Up and down, the lens is pinned to
+      // the bottom of the screen exactly like the bar (see .lens in the CSS), so
+      // the two can't drift apart when the phone's address bar hides on scroll.
       const r = bar.getBoundingClientRect();
       lens.style.left = `${r.left}px`;
-      lens.style.top = `${r.top + (r.height - lens.offsetHeight) / 2}px`;
       lens.style.width = `${w}px`;
       lens.style.transform = `translateX(${left}px) scale(${1 + stretch}, ${1 - stretch * 0.45})`;
       track.style.width = `${bar.clientWidth}px`;
@@ -230,7 +232,9 @@
     lens.classList.add('no-anim');
     place(centreOf(current));
     requestAnimationFrame(() => lens.classList.remove('no-anim'));
-    addEventListener('resize', () => place(centreOf(current)));
+    const realign = () => { if (!drag) place(centreOf(current)); };
+    addEventListener('resize', realign);
+    if (window.visualViewport) visualViewport.addEventListener('resize', realign);
 
     let drag = null;
     bar.addEventListener('pointerdown', (e) => {

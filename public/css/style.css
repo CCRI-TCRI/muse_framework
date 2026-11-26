@@ -1017,3 +1017,7 @@ body.bc-open .buycard { transform: translateY(var(--drag)); }
 /* six category tiles: 3 across on computers, 2 across on phones */
 .cat-tiles { grid-template-columns: repeat(3, 1fr); }
 @media (max-width: 860px) { .cat-tiles { grid-template-columns: repeat(2, 1fr); } }
+/* the lens sits in the bar's own spot at the bottom of the screen, so it moves with it */
+@media (max-width: 860px) {
+  .lens { top: auto !important; bottom: calc(max(14px, env(safe-area-inset-bottom)) + 5px); }
+}
