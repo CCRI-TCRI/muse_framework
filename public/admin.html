@@ -16,8 +16,7 @@
   <section id="login-view" class="login-screen hidden">
     <form class="login-card" id="login-form">
       <div class="dash-brand"><span class="mark" data-initial></span><span><b data-store-name></b><small>Admin</small></span></div>
-      <h1>Welcome back</h1>
-      <p class="muted">Sign in to manage orders, products and live sessions.</p>
+      <h1>Admin sign in</h1>
       <label class="field"><span>Password</span><input type="password" id="password" autocomplete="current-password" required></label>
       <div class="note err hidden" id="login-error"></div>
       <button class="btn block">Sign in</button>
@@ -83,8 +82,8 @@
               <label class="field"><span>Category</span><input name="category" placeholder="Dresses, Tops, Outerwear..." list="cat-list"><datalist id="cat-list"></datalist></label>
             </div>
             <div class="row3">
-              <label class="field"><span>Price (UGX)</span><input name="price" type="number" min="500" step="500" required></label>
-              <label class="field"><span>Was price, for a discount</span><input name="compare_price" type="number" min="500" step="500" placeholder="Optional"></label>
+              <label class="field"><span>Price (Uganda shillings)</span><input name="price" type="number" min="500" step="500" required></label>
+              <label class="field"><span>Was price (shillings), for a discount</span><input name="compare_price" type="number" min="500" step="500" placeholder="Optional"></label>
               <label class="field"><span>In stock</span><input name="stock" type="number" min="0" step="1" value="10" required></label>
             </div>
             <label class="field"><span>Sizes, separated by commas (leave empty for one size)</span><input name="sizes" placeholder="S, M, L, XL"></label>

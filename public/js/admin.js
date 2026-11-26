@@ -73,7 +73,7 @@ const Admin = (() => {
   /* ----- sign in ----- */
   async function start() {
     cfg = await Store.config();
-    const initial = (cfg.storeName.trim()[0] || 'M').toUpperCase();
+    const initial = Store.initials(cfg.storeName);
     document.querySelectorAll('[data-initial]').forEach((el) => { el.textContent = initial; });
     document.querySelectorAll('[data-store-name]').forEach((el) => { el.textContent = cfg.storeName; });
     document.title = `Admin · ${cfg.storeName}`;
@@ -154,7 +154,7 @@ const Admin = (() => {
 
     $('low').innerHTML = s.lowStock.map((p) => `
       <div class="row-item">
-        <span class="av" style="background:var(--p-peach);color:var(--coral)">${p.stock}</span>
+        <span class="av">${p.stock}</span>
         <div><b>${esc(p.name)}</b><small>${p.stock === 0 ? 'Sold out' : `${p.stock} left`}</small></div>
         <button class="link" data-edit-product="${p.id}">Restock</button>
       </div>`).join('') || '<p class="muted small">Everything is well stocked.</p>';

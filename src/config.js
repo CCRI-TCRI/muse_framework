@@ -23,9 +23,10 @@ const sessionSecret = env.SESSION_SECRET
 module.exports = {
   onVercel,
   port: Number(env.PORT) || 3000,
-  storeName: env.STORE_NAME || 'Muse Wear',
+  storeName: env.STORE_NAME || 'Muhoozi Martin Clothes',
   publicUrl: (env.PUBLIC_URL || '').replace(/\/$/, ''),
-  currency: (env.CURRENCY || 'ugx').toLowerCase(),
+  // Prices are in Uganda shillings.
+  currency: 'ugx',
   adminPassword,
   generatedPassword,
   sessionSecret,

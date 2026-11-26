@@ -110,6 +110,12 @@ const Store = (() => {
     </div></div>`;
   }
 
+  // "Muhoozi Martin Clothes" -> "MM"
+  function initials(name) {
+    const words = String(name || '').trim().split(/\s+/).filter(Boolean);
+    return ((words[0] || 'M')[0] + (words[1] ? words[1][0] : '')).toUpperCase();
+  }
+
   /* ----- small line icons ----- */
   const ICONS = {
     home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
@@ -264,12 +270,12 @@ const Store = (() => {
     const c = await config();
     const s = c.settings;
     const name = esc(c.storeName);
-    const initial = esc((c.storeName.trim()[0] || 'M').toUpperCase());
+    const initial = esc(initials(c.storeName));
     const q = new URLSearchParams(location.search).get('q') || '';
     const on = (k) => (active === k ? 'on' : '');
     let customer = '';
     try { customer = (JSON.parse(localStorage.getItem('store-details') || '{}').name || '').trim().split(/\s+/)[0]; } catch {}
-    const avatar = esc((customer || c.storeName.trim())[0] || 'M').toUpperCase();
+    const avatar = esc(customer ? customer[0].toUpperCase() : initials(c.storeName));
 
     const top = document.createElement('div');
     top.innerHTML = `
@@ -279,7 +285,7 @@ const Store = (() => {
           <a class="brand" href="/">
             <span class="mark">${avatar}</span>
             <span class="name">${name}</span>
-            <span class="hello"><b>${customer ? `Hello, ${esc(customer)}` : 'Hello there'}</b><span>Welcome to ${name}</span></span>
+            <span class="hello"><b>${customer ? `Hello, ${esc(customer)}` : 'Hello there'}</b><span>${name}</span></span>
           </a>
           <nav class="nav">
             <a href="/" class="${on('home')}">Home</a>
@@ -389,5 +395,5 @@ const Store = (() => {
 
   const live = () => livePromise;
 
-  return { myOrders, rememberOrder, tint, intl, shopNumbers, waLink, telLink, live, icon, headline, priceHtml, heartButton, searchRow, readSaved, toggleSaved, api, config, products, money, esc, art, card, isDark, readBag, writeBag, addToBag, bagCount, bagLines, bagClicks, subtotal, checkout, openDrawer, chrome, reveal };
+  return { initials, myOrders, rememberOrder, tint, intl, shopNumbers, waLink, telLink, live, icon, headline, priceHtml, heartButton, searchRow, readSaved, toggleSaved, api, config, products, money, esc, art, card, isDark, readBag, writeBag, addToBag, bagCount, bagLines, bagClicks, subtotal, checkout, openDrawer, chrome, reveal };
 })();

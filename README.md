@@ -1,4 +1,4 @@
-# Muse Wear
+# Muhoozi Martin Clothes
 
 A clothing shop you run yourself, built to feel like a phone app. Customers browse, choose a size and place an order, then confirm it with you on WhatsApp and pay by Mobile Money or cash on delivery. You add pieces, upload films, and go live from your phone so people can watch you try things on and buy straight from the stream. Prices are in Ugandan shillings.
 
@@ -31,7 +31,7 @@ You'll need a free [Vercel](https://vercel.com) account connected to your GitHub
 1. **Import the project.** In Vercel, click *Add New > Project* and pick this GitHub repository. Leave every build setting as it is (the included `vercel.json` handles it) and click *Deploy*. The first deploy will load, but admin and checkout won't work until the next steps are done.
 2. **Add a database.** In the project, open the *Storage* tab, choose *Create Database*, pick **Neon** (Postgres) and connect it to the project. Vercel adds `DATABASE_URL` for you. The tables and starter products are created automatically the first time the site is visited.
 3. **Add file storage.** Still in *Storage*, create a **Blob** store and connect it. Vercel adds `BLOB_READ_WRITE_TOKEN`. Photos and films go here.
-4. **Set your password.** In *Settings > Environment Variables*, add `ADMIN_PASSWORD` with something long. Add `STORE_NAME` too if you want a different name, and `CURRENCY` if you don't sell in Ugandan shillings.
+4. **Set your password.** In *Settings > Environment Variables*, add `ADMIN_PASSWORD` with something long. Add `STORE_NAME` too if you want a different name.
 5. **Redeploy.** Go to *Deployments*, open the menu on the latest one and choose *Redeploy* so the new settings take effect.
 
 Then open `your-project.vercel.app/admin`, sign in and start adding your pieces. To use your own domain, add it under *Settings > Domains*.
