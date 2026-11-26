@@ -155,7 +155,7 @@ const Admin = (() => {
         <tr>
           <td><div class="thumb">${art(p)}</div></td>
           <td>${esc(p.name)}<div class="small muted">${esc(p.category)}${p.active ? '' : ', hidden'}</div></td>
-          <td>${money(p.price_cents)}</td>
+          <td>${money(p.price_cents)}${p.compare_cents ? `<div class="small muted" style="text-decoration:line-through">${money(p.compare_cents)}</div>` : ''}</td>
           <td>${p.stock <= 3 ? `<strong style="color:var(--red)">${p.stock}</strong>` : p.stock}</td>
           <td class="small">${esc(p.sizes.replaceAll(',', ', ')) || 'One size'}</td>
           <td style="white-space:nowrap;text-align:right">
@@ -190,6 +190,7 @@ const Admin = (() => {
       f.name.value = p.name;
       f.category.value = p.category;
       f.price.value = (p.price_cents / 100).toFixed(2);
+      f.compare_price.value = p.compare_cents ? (p.compare_cents / 100).toFixed(2) : '';
       f.stock.value = p.stock;
       f.sizes.value = p.sizes.replaceAll(',', ', ');
       f.description.value = p.description;
@@ -214,7 +215,7 @@ const Admin = (() => {
     e.preventDefault();
     const f = form.elements;
     const body = {
-      name: f.name.value, category: f.category.value, price: f.price.value, stock: f.stock.value, sizes: f.sizes.value,
+      name: f.name.value, category: f.category.value, price: f.price.value, compare_price: f.compare_price.value, stock: f.stock.value, sizes: f.sizes.value,
       description: f.description.value, details: f.details.value, color: f.color.value, active: f.active.checked, images,
     };
     $('save-product').disabled = true;

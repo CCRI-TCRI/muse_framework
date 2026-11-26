@@ -38,6 +38,7 @@ const SCHEMA = `
     active      BOOLEAN NOT NULL DEFAULT TRUE,
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
   );
+  ALTER TABLE products ADD COLUMN IF NOT EXISTS compare_cents INTEGER;
 
   CREATE TABLE IF NOT EXISTS videos (
     id          SERIAL PRIMARY KEY,
@@ -115,36 +116,36 @@ const SCHEMA = `
 
 // Starter pieces so the shop isn't empty the first time. Delete or edit them in the admin.
 const STARTERS = [
-  ['The Long Wool Coat', 'Outerwear', 42000, 'XS,S,M,L,XL', 12, '#cfc6b8',
+  ['The Long Wool Coat', 'Outerwear', 42000, 'XS,S,M,L,XL', 12, '#c49a6c',
     'A floor-skimming coat cut from double-faced Italian wool. Dropped shoulders, a wide notch lapel and deep side pockets. Unlined, so it drapes rather than stands.',
     '80% virgin wool, 20% cashmere\nUnlined, hand-finished seams\nDry clean only\nMade in Portugal'],
-  ['Cashmere Crew Knit', 'Knitwear', 29000, 'XS,S,M,L,XL', 20, '#e4dccf',
+  ['Cashmere Crew Knit', 'Knitwear', 29000, 'XS,S,M,L,XL', 20, '#efe4d2',
     'Twelve-gauge Mongolian cashmere knitted to a relaxed, slightly boxy shape. Ribbed collar, cuffs and hem. Soft from the first wear.',
     '100% grade-A cashmere\nHand wash cold, dry flat\nMade in Scotland'],
   ['Pleated Wide-Leg Trouser', 'Trousers', 24000, '24,26,28,30,32,34', 18, '#3b3834',
     'High rise with a deep double pleat and a full leg that breaks softly over the shoe. The wool blend holds a crease and sheds wrinkles.',
     '70% wool, 28% polyester, 2% elastane\nSide adjusters, no belt loops\nDry clean\nMade in Italy'],
-  ['Silk Slip Dress', 'Dresses', 31000, 'XS,S,M,L', 9, '#b9a48a',
+  ['Silk Slip Dress', 'Dresses', 31000, 'XS,S,M,L', 9, '#2e3a63',
     'Bias-cut sandwashed silk with fine adjustable straps. Falls to mid-calf. Wear it alone in summer or over a knit when it cools down.',
     '100% mulberry silk, 22 momme\nCool hand wash or dry clean\nMade in Portugal'],
-  ['Heavyweight Boxy Tee', 'Tops', 8500, 'XS,S,M,L,XL', 40, '#efebe4',
+  ['Heavyweight Boxy Tee', 'Tops', 8500, 'XS,S,M,L,XL', 40, '#fafafa',
     'Dense 300gsm cotton jersey, garment dyed so every piece is slightly different. Cropped and boxy with a narrow ribbed neck.',
     '100% organic cotton\nMachine wash cold, hang dry\nMade in Portugal'],
-  ['Relaxed Linen Shirt', 'Tops', 18000, 'XS,S,M,L,XL', 22, '#d7d9d2',
+  ['Relaxed Linen Shirt', 'Tops', 18000, 'XS,S,M,L,XL', 22, '#c9d9ee',
     'Washed Irish linen in an easy, slightly oversized fit. Mother-of-pearl buttons and a soft camp collar.',
     '100% linen\nMachine wash cold\nMade in Lithuania'],
-  ['Leather Day Tote', 'Accessories', 36000, '', 7, '#7a5a43',
+  ['Leather Day Tote', 'Accessories', 36000, '', 7, '#9b6a43',
     'Vegetable-tanned leather that darkens and softens with use. Big enough for a laptop, with an inner zip pocket and raw painted edges.',
     'Full-grain vegetable-tanned leather\n40 x 32 x 12 cm\nMade in Spain'],
-  ['Ribbed Merino Beanie', 'Accessories', 9500, '', 30, '#8c8f86',
+  ['Ribbed Merino Beanie', 'Accessories', 9500, '', 30, '#c0553a',
     'Chunky rib in extra-fine merino. Fold the cuff or wear it slouched.',
     '100% extra-fine merino wool\nHand wash cold\nMade in Ireland'],
 ];
 
 const DEFAULT_SETTINGS = {
   announcement: 'Complimentary shipping on orders over $250 · Free returns within 30 days',
-  hero_kicker: 'Autumn / Winter',
-  hero_title: 'Quiet clothes, made slowly',
+  hero_kicker: 'New season just landed',
+  hero_title: 'Your everyday *wardrobe* _edit_',
   hero_text: 'Natural fibres, small runs and cuts that last for years. Every new piece is tried on live before it goes on sale.',
   hero_media: '',
   hero_media_type: '',

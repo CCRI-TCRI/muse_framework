@@ -73,25 +73,71 @@ const Store = (() => {
     return (0.299 * r + 0.587 * g + 0.114 * b) < 140;
   }
 
-  // Picture for a product: its photo, or a drawing on the product's colour.
+  // Picture for a product: its photo, or a drawing of the garment in its colour.
   function art(p, { index = 0, hover = false } = {}) {
     const imgs = p.images || [];
     if (imgs[index]) {
       const alt = hover && imgs[index + 1] ? `<img class="alt" src="${esc(imgs[index + 1])}" alt="" loading="lazy">` : '';
       return `<div class="art"><img src="${esc(imgs[index])}" alt="${esc(p.name)}" loading="lazy">${alt}</div>`;
     }
-    const stroke = isDark(p.color) ? 'rgba(255,255,255,.72)' : 'rgba(18,18,18,.5)';
-    return `<div class="art" style="background:${esc(p.color)}"><div class="sketch">
-      <svg viewBox="0 0 200 250" fill="none" stroke="${stroke}" stroke-width="1.1" stroke-linejoin="round" stroke-linecap="round" role="img" aria-label="${esc(p.name)}">${sketchFor(p)}</svg>
+    const fill = /^#[0-9a-f]{6}$/i.test(p.color || '') ? p.color : '#e7e2da';
+    const stroke = isDark(fill) ? 'rgba(255,255,255,.45)' : 'rgba(17,17,17,.55)';
+    return `<div class="art"><div class="sketch">
+      <svg viewBox="0 0 200 250" fill="${fill}" stroke="${stroke}" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" role="img" aria-label="${esc(p.name)}">${sketchFor(p)}</svg>
     </div></div>`;
   }
 
+  /* ----- small line icons ----- */
+  const ICONS = {
+    home: '<path d="M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z"/>',
+    search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>',
+    heart: '<path d="M12 20s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.2a4.3 4.3 0 0 1 7.5 2.6C19.5 15.4 12 20 12 20z"/>',
+    bag: '<path d="M5 8h14l-1.2 12.1a1 1 0 0 1-1 .9H7.2a1 1 0 0 1-1-.9z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>',
+    live: '<circle cx="12" cy="12" r="2.2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/>',
+    film: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9.5 4.5 2.5-4.5 2.5z"/>',
+    back: '<path d="M14.5 5.5 8 12l6.5 6.5"/>',
+    sliders: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
+    arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+  };
+  const icon = (name) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
+
+  // Headlines: *word* gets the black box, _word_ goes light italic.
+  function headline(text) {
+    return esc(text).replace(/\*([^*]+)\*/g, '<span class="hl">$1</span>').replace(/_([^_]+)_/g, '<span class="it">$1</span>');
+  }
+
+  /* ----- saved pieces (hearts) ----- */
+  const SAVED = 'store-saved';
+  function readSaved() {
+    try { return JSON.parse(localStorage.getItem(SAVED)) || []; } catch { return []; }
+  }
+  function isSaved(id) { return readSaved().includes(id); }
+  function toggleSaved(id) {
+    const list = readSaved();
+    const next = list.includes(id) ? list.filter((x) => x !== id) : [...list, id];
+    try { localStorage.setItem(SAVED, JSON.stringify(next)); } catch {}
+    document.querySelectorAll(`[data-heart="${id}"]`).forEach((b) => b.classList.toggle('on', next.includes(id)));
+    updateCounts();
+    return next.includes(id);
+  }
+  function heartButton(id) {
+    return `<button class="heart ${isSaved(id) ? 'on' : ''}" data-heart="${id}" aria-label="Save">${icon('heart')}</button>`;
+  }
+
+  function priceHtml(p) {
+    return `${money(p.price_cents)}${p.compare_cents ? `<span class="was">${money(p.compare_cents)}</span>` : ''}`;
+  }
+
   function card(p) {
-    const tag = !p.in_stock ? 'Sold out' : p.low_stock ? `Only ${p.low_stock} left` : '';
-    return `<a class="card reveal" href="/product?id=${p.id}">
-      <div class="frame">${tag ? `<span class="tag">${tag}</span>` : ''}${art(p, { hover: true })}</div>
-      <div class="meta"><span class="name">${esc(p.name)}</span><span class="price">${money(p.price_cents)}</span></div>
-    </a>`;
+    const off = p.compare_cents ? Math.round((1 - p.price_cents / p.compare_cents) * 100) : 0;
+    const tag = !p.in_stock ? '<span class="tag">Sold out</span>'
+      : off >= 5 ? `<span class="tag sale">${off}% off</span>`
+      : p.low_stock ? `<span class="tag">Only ${p.low_stock} left</span>` : '';
+    return `<div class="card reveal">
+      <a class="frame" href="/product?id=${p.id}">${tag}${art(p, { hover: true })}<span class="shop-pill">${icon('bag')}Shop</span></a>
+      ${heartButton(p.id)}
+      <a class="meta" href="/product?id=${p.id}"><span class="name">${esc(p.name)}</span><span class="price">${priceHtml(p)}</span></a>
+    </div>`;
   }
 
   /* ----- bag (kept in this browser) ----- */
@@ -101,7 +147,7 @@ const Store = (() => {
   }
   function writeBag(items) {
     try { localStorage.setItem(KEY, JSON.stringify(items)); } catch {}
-    document.querySelectorAll('[data-bag-count]').forEach((el) => { el.textContent = bagCount(); });
+    updateCounts();
     renderDrawer();
   }
   function bagCount() { return readBag().reduce((n, i) => n + i.qty, 0); }
@@ -183,47 +229,54 @@ const Store = (() => {
   }
 
   /* ----- page chrome ----- */
+  function updateCounts() {
+    const bag = bagCount();
+    const saved = readSaved().length;
+    document.querySelectorAll('[data-bag-count]').forEach((el) => { el.textContent = bag || ''; });
+    document.querySelectorAll('[data-saved-count]').forEach((el) => { el.textContent = saved || ''; });
+  }
+
   async function chrome(active = '') {
     const c = await config();
     const s = c.settings;
     const name = esc(c.storeName);
+    const initial = esc((c.storeName.trim()[0] || 'M').toUpperCase());
+    const q = new URLSearchParams(location.search).get('q') || '';
+    const on = (k) => (active === k ? 'on' : '');
 
     const top = document.createElement('div');
     top.innerHTML = `
-      ${c.demoMode ? '<div class="announce demo">Test mode. Checkout works, but no cards are charged yet.</div>' : ''}
+      ${c.demoMode ? '<div class="announce demo">Test mode: checkout works, but no cards are charged yet.</div>' : ''}
       ${s.announcement ? `<div class="announce">${esc(s.announcement)}</div>` : ''}
       <header class="site-header">
         <div class="bar">
-          <nav class="nav-left">
-            <button class="menu-btn" data-open="menu" aria-label="Menu"><span></span><span></span></button>
-            <a href="/shop" class="${active === 'shop' ? 'on' : ''}">Shop</a>
-            <a href="/videos" class="${active === 'videos' ? 'on' : ''}">Films</a>
-            <a href="/live" class="${active === 'live' ? 'on' : ''}" data-live-link>Live</a>
+          <a class="brand" href="/">
+            <span class="mark">${initial}</span>
+            <span class="name">${name}</span>
+            <span class="hello"><b>Hello there</b><span>Welcome to ${name}</span></span>
+          </a>
+          <nav class="nav">
+            <a href="/" class="${on('home')}">Home</a>
+            <a href="/shop" class="${on('shop')}">Shop</a>
+            <a href="/videos" class="${on('videos')}">Films</a>
+            <a href="/live" class="${on('live')}" data-live-link>Live</a>
           </nav>
-          <a class="wordmark" href="/">${name}</a>
-          <nav class="nav-right">
-            <button data-open="bag">Bag (<span data-bag-count>0</span>)</button>
-          </nav>
+          <form class="search" action="/shop" role="search">${icon('search')}<input name="q" placeholder="Search" value="${esc(q)}" aria-label="Search the shop"></form>
+          <div class="actions">
+            <a class="icon-btn" href="/shop?saved=1" aria-label="Saved pieces">${icon('heart')}<span class="count" data-saved-count></span></a>
+            <button class="icon-btn" data-open="bag" aria-label="Bag">${icon('bag')}<span class="count" data-bag-count></span></button>
+          </div>
         </div>
       </header>`;
     document.body.prepend(...top.children);
 
     const cats = [...new Set((await products().catch(() => [])).map((p) => p.category))];
 
-    const drawers = document.createElement('div');
-    drawers.innerHTML = `
+    const extra = document.createElement('div');
+    extra.innerHTML = `
       <div class="scrim"></div>
-      <aside class="drawer left" id="menu" aria-label="Menu">
-        <div class="drawer-head"><span class="eyebrow">Menu</span><button class="close" data-close>Close</button></div>
-        <nav class="menu-links">
-          <a href="/shop">Shop all</a>
-          ${cats.map((cat) => `<a class="sub" href="/shop?category=${encodeURIComponent(cat)}">${esc(cat)}</a>`).join('')}
-          <a href="/videos">Films</a>
-          <a href="/live" data-live-link>Live</a>
-        </nav>
-      </aside>
-      <aside class="drawer right" id="bag" aria-label="Shopping bag">
-        <div class="drawer-head"><span class="eyebrow">Your bag (<span data-bag-count>0</span>)</span><button class="close" data-close>Close</button></div>
+      <aside class="drawer" id="bag" aria-label="Shopping bag">
+        <div class="drawer-head"><span class="eyebrow">My bag</span><button class="close" data-close aria-label="Close">Close</button></div>
         <div class="drawer-body" id="bag-body"></div>
         <div class="drawer-foot" id="bag-foot">
           <div class="totals big"><span>Subtotal</span><span id="bag-subtotal"></span></div>
@@ -232,15 +285,21 @@ const Store = (() => {
           <button class="btn block" id="drawer-checkout">Checkout</button>
           <a class="btn ghost block" href="/cart">View bag</a>
         </div>
-      </aside>`;
-    document.body.append(...drawers.children);
+      </aside>
+      <nav class="bottom-nav" aria-label="Main">
+        <a href="/" class="${on('home')}">${icon('home')}<span>Home</span></a>
+        <a href="/shop" class="${on('shop')}">${icon('search')}<span>Shop</span></a>
+        <a href="/shop?saved=1" class="${on('saved')}">${icon('heart')}<span>Saved</span></a>
+        <a href="/live" class="${on('live')}" data-live-link>${icon('live')}<span>Live</span></a>
+      </nav>`;
+    document.body.append(...extra.children);
 
     const footer = document.createElement('footer');
     footer.className = 'site-footer';
     footer.innerHTML = `
-      <div class="wrap">
+      <div class="wrap"><div class="foot-card">
         <div class="foot-grid">
-          <div><a class="wordmark" href="/">${name}</a><p>${esc(s.about)}</p></div>
+          <div><a class="brand" href="/"><span class="mark">${initial}</span><span class="name" style="display:inline">${name}</span></a><p>${esc(s.about)}</p></div>
           <div><h4>Shop</h4><ul>
             <li><a href="/shop">All pieces</a></li>
             ${cats.slice(0, 6).map((cat) => `<li><a href="/shop?category=${encodeURIComponent(cat)}">${esc(cat)}</a></li>`).join('')}
@@ -248,16 +307,18 @@ const Store = (() => {
           <div><h4>Studio</h4><ul>
             <li><a href="/videos">Films</a></li>
             <li><a href="/live">Live try-ons</a></li>
-            <li><a href="/cart">Your bag</a></li>
+            <li><a href="/shop?saved=1">Saved pieces</a></li>
             ${s.instagram ? `<li><a href="${esc(s.instagram)}" target="_blank" rel="noopener">Instagram</a></li>` : ''}
           </ul></div>
           <div><h4>Delivery &amp; returns</h4><p>${esc(s.shipping_info)}</p></div>
         </div>
         <div class="foot-base"><span>&copy; ${new Date().getFullYear()} ${name}</span><span>Secure payments by Stripe</span></div>
-      </div>`;
+      </div></div>`;
     document.body.append(footer);
 
     document.addEventListener('click', (e) => {
+      const heart = e.target.closest('[data-heart]');
+      if (heart) { e.preventDefault(); toggleSaved(Number(heart.dataset.heart)); return; }
       const open = e.target.closest('[data-open]');
       if (open) { openDrawer(open.dataset.open); return; }
       if (e.target.closest('[data-close]') || e.target.classList.contains('scrim')) closeDrawers();
@@ -266,21 +327,24 @@ const Store = (() => {
     document.getElementById('bag-body').addEventListener('click', bagClicks);
     document.getElementById('drawer-checkout').addEventListener('click', (e) => checkout(e.currentTarget, document.getElementById('bag-error')));
 
-    const header = document.querySelector('.site-header');
-    const onScroll = () => header.classList.toggle('scrolled', scrollY > 10);
-    addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
-
     document.title = document.title ? `${document.title} · ${c.storeName}` : c.storeName;
     writeBag(readBag());
 
     livePromise = api('/live/status').catch(() => ({ live: false }));
     livePromise.then((st) => {
       if (!st.live) return;
-      document.querySelectorAll('[data-live-link]').forEach((a) => { a.innerHTML = '<span class="live-dot"></span>Live'; });
+      document.querySelectorAll('[data-live-link]').forEach((a) => a.insertAdjacentHTML('beforeend', '<span class="live-dot"></span>'));
     });
 
     return c;
+  }
+
+  // Search box + filter button used on phones (the header search hides there).
+  function searchRow(value = '') {
+    return `<div class="search-row">
+      <form class="search" action="/shop" role="search">${icon('search')}<input name="q" placeholder="Search" value="${esc(value)}" aria-label="Search the shop"></form>
+      <a class="icon-btn" href="/shop" aria-label="Browse and sort">${icon('sliders')}</a>
+    </div>`;
   }
 
   // Fade things in as they scroll into view.
@@ -295,5 +359,5 @@ const Store = (() => {
 
   const live = () => livePromise;
 
-  return { live, api, config, products, money, esc, art, card, isDark, readBag, writeBag, addToBag, bagCount, bagLines, bagClicks, subtotal, checkout, openDrawer, chrome, reveal };
+  return { live, icon, headline, priceHtml, heartButton, searchRow, readSaved, toggleSaved, api, config, products, money, esc, art, card, isDark, readBag, writeBag, addToBag, bagCount, bagLines, bagClicks, subtotal, checkout, openDrawer, chrome, reveal };
 })();

@@ -14,50 +14,93 @@
   <script src="/js/common.js"></script>
   <script>
     (async () => {
-      const { esc, art, money, card } = Store;
+      const { esc, art, money, card, icon, priceHtml, heartButton } = Store;
       const cfg = await Store.chrome('shop');
       const page = document.getElementById('page');
       let p;
       try {
         p = await Store.api('/products/' + encodeURIComponent(new URLSearchParams(location.search).get('id')));
       } catch (err) {
-        page.innerHTML = `<div class="empty"><h2>${esc(err.message)}</h2><a class="u-link" href="/shop">Back to the shop</a></div>`;
+        page.innerHTML = `<div class="empty"><h2>${esc(err.message)}</h2><a class="btn" href="/shop">Back to the shop</a></div>`;
         return;
       }
       document.title = `${p.name} · ${cfg.storeName}`;
+      document.body.classList.add('no-bottom-nav');
+
       let size = p.sizes.length === 1 ? p.sizes[0] : '';
-      const shots = p.images.length ? p.images.map((_, i) => art(p, { index: i })) : [art(p)];
+      let qty = 1;
+      let shot = 0;
+      const shots = Math.max(p.images.length, 1);
+      const off = p.compare_cents ? Math.round((1 - p.price_cents / p.compare_cents) * 100) : 0;
 
       page.innerHTML = `
         <nav class="crumbs"><a href="/shop">Shop</a> / <a href="/shop?category=${encodeURIComponent(p.category)}">${esc(p.category)}</a></nav>
         <div class="pdp">
-          <div class="gallery ${shots.length === 1 ? 'single' : ''}">${shots.map((s) => `<div class="shot">${s}</div>`).join('')}</div>
-          <div class="buy">
-            <div class="eyebrow">${esc(p.category)}</div>
-            <h1>${esc(p.name)}</h1>
-            <div class="price">${money(p.price_cents)}</div>
+          <div class="viewer">
+            <div class="stagebox">
+              <div class="top">
+                <a class="icon-btn" href="javascript:history.length > 1 ? history.back() : location.assign('/shop')" aria-label="Back">${icon('back')}</a>
+                <span class="title">Details</span>
+                ${heartButton(p.id)}
+              </div>
+              <div id="main-shot" style="position:absolute;inset:0">${art(p)}</div>
+            </div>
+            ${shots > 1 ? `<div class="thumbs">${p.images.map((_, i) => `<button class="${i === 0 ? 'on' : ''}" data-shot="${i}" aria-label="Photo ${i + 1}">${art(p, { index: i })}</button>`).join('')}</div>` : ''}
+          </div>
+
+          <div class="sheet">
+            <div class="sheet-top">
+              <div><h1>${esc(p.name)}</h1><div class="sub">${esc(p.category)}</div></div>
+              <div class="price">${p.compare_cents ? `<span class="was">${money(p.compare_cents)}</span>` : ''}${money(p.price_cents)}</div>
+            </div>
+
+            <div class="meta-row">
+              <div class="badges">
+                ${off >= 5 ? `<span class="badge-soft good">${off}% off</span>` : ''}
+                ${!p.in_stock ? '<span class="badge-soft">Sold out</span>' : p.low_stock ? `<span class="badge-soft warn">Only ${p.low_stock} left</span>` : '<span class="badge-soft good">In stock</span>'}
+                ${p.videos.length ? '<span class="badge-soft">On film</span>' : ''}
+              </div>
+              ${p.in_stock ? `<div class="stepper"><button data-q="-1" aria-label="One fewer">&minus;</button><span id="qty">1</span><button data-q="1" aria-label="One more">+</button></div>` : ''}
+            </div>
+
             ${p.sizes.length > 1 ? `
-              <div class="size-head"><span class="eyebrow">Size</span><span class="small muted" id="size-label">Select a size</span></div>
+              <h3>Size <span class="muted small" id="size-label" style="font-weight:400;margin-left:6px">Choose one</span></h3>
               <div class="sizes">${p.sizes.map((s) => `<button class="size" data-size="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : ''}
-            <button class="btn block" id="add" ${p.in_stock ? '' : 'disabled'}>${p.in_stock ? 'Add to bag' : 'Sold out'}</button>
-            <div class="stock-note" id="note">${p.low_stock ? `Only ${p.low_stock} left` : ''}</div>
+
+            <h3>Description</h3>
+            <div class="desc">${esc(p.description)}</div>
+
             <div class="acc">
-              <details open><summary>Description</summary><div class="body">${esc(p.description)}</div></details>
               ${p.details ? `<details><summary>Composition &amp; care</summary><div class="body">${esc(p.details)}</div></details>` : ''}
               <details><summary>Delivery &amp; returns</summary><div class="body">${esc(cfg.settings.shipping_info)}</div></details>
             </div>
+
+            <div class="stock-note" id="note"></div>
+            <div class="buybar">
+              <button class="btn round" id="add" aria-label="Add to bag" ${p.in_stock ? '' : 'disabled'}>${icon('bag')}</button>
+              <button class="btn" id="buy" ${p.in_stock ? '' : 'disabled'}>${p.in_stock ? 'Buy now' : 'Sold out'}</button>
+            </div>
           </div>
         </div>
+
         ${p.videos.length ? `
-          <section class="section" style="padding-top:0">
-            <div class="section-head"><div><div class="eyebrow">On film</div><h2>See it move</h2></div></div>
+          <section class="section">
+            <div class="section-head"><h2>See it move</h2></div>
             <div class="films">${p.videos.map((v) => `<div class="film"><video src="${esc(v.file)}" controls playsinline preload="metadata"></video><div class="cap"><h3>${esc(v.title)}</h3></div></div>`).join('')}</div>
           </section>` : ''}
         ${p.related.length ? `
-          <section class="section" style="padding-top:0">
-            <div class="section-head"><div><div class="eyebrow">Also consider</div><h2>You may also like</h2></div></div>
+          <section class="section">
+            <div class="section-head"><h2>You may also like</h2><a class="u-link" href="/shop?category=${encodeURIComponent(p.category)}">See all</a></div>
             <div class="grid">${p.related.map(card).join('')}</div>
           </section>` : ''}`;
+
+      page.querySelector('.thumbs')?.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-shot]');
+        if (!b) return;
+        shot = Number(b.dataset.shot);
+        document.getElementById('main-shot').innerHTML = art(p, { index: shot });
+        page.querySelectorAll('.thumbs button').forEach((x) => x.classList.toggle('on', x === b));
+      });
 
       page.querySelector('.sizes')?.addEventListener('click', (e) => {
         const b = e.target.closest('[data-size]');
@@ -65,14 +108,27 @@
         size = b.dataset.size;
         page.querySelectorAll('.size').forEach((x) => x.classList.toggle('on', x === b));
         document.getElementById('size-label').textContent = `Size ${size}`;
-        document.getElementById('note').textContent = p.low_stock ? `Only ${p.low_stock} left` : '';
+        document.getElementById('note').textContent = '';
       });
 
-      document.getElementById('add').addEventListener('click', () => {
-        if (p.sizes.length && !size) { document.getElementById('note').textContent = 'Please choose a size first.'; return; }
-        Store.addToBag(p, size);
-        Store.openDrawer('bag');
+      page.querySelector('.stepper')?.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-q]');
+        if (!b) return;
+        qty = Math.max(1, Math.min(20, qty + Number(b.dataset.q)));
+        document.getElementById('qty').textContent = qty;
       });
+
+      function add() {
+        if (p.sizes.length > 1 && !size) {
+          document.getElementById('note').textContent = 'Please choose a size first.';
+          page.querySelector('.sizes').scrollIntoView({ behavior: 'smooth', block: 'center' });
+          return false;
+        }
+        Store.addToBag(p, size, qty);
+        return true;
+      }
+      document.getElementById('add').addEventListener('click', () => { if (add()) Store.openDrawer('bag'); });
+      document.getElementById('buy').addEventListener('click', (e) => { if (add()) Store.checkout(e.currentTarget, document.getElementById('note')); });
       Store.reveal();
     })();
   </script>

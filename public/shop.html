@@ -9,52 +9,67 @@
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <main class="wrap">
+  <main class="wrap" style="padding-bottom:60px">
+    <div id="search-slot"></div>
     <header class="shop-head">
-      <div class="eyebrow" id="count"></div>
-      <h1 id="heading">All pieces</h1>
-    </header>
-    <div class="toolbar">
-      <div class="cats" id="cats"></div>
-      <select id="sort" aria-label="Sort">
-        <option value="new">Newest</option>
-        <option value="low">Price, low to high</option>
-        <option value="high">Price, high to low</option>
+      <div><div class="eyebrow" id="count"></div><h1 id="heading">All pieces</h1></div>
+      <select id="sort" class="sort" aria-label="Sort">
+        <option value="new">Newest first</option>
+        <option value="low">Price: low to high</option>
+        <option value="high">Price: high to low</option>
       </select>
-    </div>
-    <div class="grid" id="grid" style="padding-bottom:120px"></div>
+    </header>
+    <div class="chips" id="chips" style="margin-bottom:22px"></div>
+    <div class="grid" id="grid"></div>
   </main>
 
   <script src="/js/common.js"></script>
   <script>
     (async () => {
-      await Store.chrome('shop');
-      const products = await Store.products();
+      const { esc } = Store;
       const params = new URLSearchParams(location.search);
-      let current = params.get('category') || 'All';
+      const savedView = params.get('saved') === '1';
+      const q = (params.get('q') || '').trim();
+      await Store.chrome(savedView ? 'saved' : 'shop');
+      document.getElementById('search-slot').innerHTML = Store.searchRow(q);
+      const products = await Store.products();
       const cats = ['All', ...new Set(products.map((p) => p.category))];
-      if (!cats.includes(current)) current = 'All';
+      let current = cats.includes(params.get('category')) ? params.get('category') : 'All';
 
       function draw() {
         const sort = document.getElementById('sort').value;
+        const words = q.toLowerCase().split(/\s+/).filter(Boolean);
+        const saved = Store.readSaved();
         let list = products.filter((p) => current === 'All' || p.category === current);
+        if (savedView) list = list.filter((p) => saved.includes(p.id));
+        if (words.length) list = list.filter((p) => words.every((w) => `${p.name} ${p.category} ${p.description}`.toLowerCase().includes(w)));
         if (sort === 'low') list = [...list].sort((a, b) => a.price_cents - b.price_cents);
         if (sort === 'high') list = [...list].sort((a, b) => b.price_cents - a.price_cents);
-        document.getElementById('heading').textContent = current === 'All' ? 'All pieces' : current;
-        document.getElementById('count').textContent = `${list.length} ${list.length === 1 ? 'piece' : 'pieces'}`;
-        document.getElementById('cats').innerHTML = cats.map((c) => `<button class="${c === current ? 'on' : ''}" data-cat="${Store.esc(c)}">${Store.esc(c)}</button>`).join('');
-        document.getElementById('grid').innerHTML = list.map(Store.card).join('') || '<p class="muted">Nothing here yet.</p>';
+
+        document.getElementById('heading').textContent = savedView ? 'Saved pieces' : q ? `"${q}"` : current === 'All' ? 'All pieces' : current;
+        document.getElementById('count').textContent = `${list.length} ${list.length === 1 ? 'piece' : 'pieces'}${q ? ' found' : ''}`;
+        document.getElementById('chips').innerHTML = cats.map((c) => `<button class="chip ${c === current ? 'on' : ''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
+        document.getElementById('grid').innerHTML = list.map(Store.card).join('') || `
+          <div class="empty" style="grid-column:1/-1">
+            <h2>${savedView ? 'Nothing saved yet' : 'Nothing matches that'}</h2>
+            <p class="muted">${savedView ? 'Tap the heart on any piece to keep it here.' : 'Try a different word or category.'}</p>
+            <a class="btn" href="/shop">See everything</a>
+          </div>`;
         Store.reveal();
       }
 
-      document.getElementById('cats').addEventListener('click', (e) => {
+      document.getElementById('chips').addEventListener('click', (e) => {
         const b = e.target.closest('[data-cat]');
         if (!b) return;
         current = b.dataset.cat;
-        history.replaceState(null, '', current === 'All' ? '/shop' : `/shop?category=${encodeURIComponent(current)}`);
+        const next = new URLSearchParams(location.search);
+        current === 'All' ? next.delete('category') : next.set('category', current);
+        history.replaceState(null, '', `/shop${next.toString() ? `?${next}` : ''}`);
         draw();
       });
       document.getElementById('sort').addEventListener('change', draw);
+      // Unsaving something on the saved page takes it off the list.
+      if (savedView) document.addEventListener('click', (e) => { if (e.target.closest('[data-heart]')) setTimeout(draw, 0); });
       draw();
     })();
   </script>

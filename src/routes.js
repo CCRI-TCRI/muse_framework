@@ -15,7 +15,7 @@ const baseUrl = (req) => config.publicUrl || `${req.protocol}://${req.get('host'
 
 const publicProduct = (p) => ({
   id: p.id, name: p.name, description: p.description, details: p.details, category: p.category,
-  price_cents: p.price_cents, sizes: p.sizes.split(',').map((s) => s.trim()).filter(Boolean),
+  price_cents: p.price_cents, compare_cents: p.compare_cents > p.price_cents ? p.compare_cents : null, sizes: p.sizes.split(',').map((s) => s.trim()).filter(Boolean),
   in_stock: p.stock > 0, low_stock: p.stock > 0 && p.stock <= 3 ? p.stock : null,
   images: p.images, color: p.color, created_at: p.created_at,
 });
@@ -122,6 +122,8 @@ function readProduct(body) {
   const price = Math.round(Number(body.price) * 100);
   if (!name) throw new Error('Give the piece a name.');
   if (!Number.isFinite(price) || price < 50) throw new Error('The price needs to be at least 0.50.');
+  const compare = body.compare_price === '' || body.compare_price == null ? null : Math.round(Number(body.compare_price) * 100);
+  if (compare !== null && (!Number.isFinite(compare) || compare <= price)) throw new Error('The "was" price needs to be higher than the price, or left empty.');
   const images = Array.isArray(body.images) ? body.images.filter(storage.isOurFile).slice(0, 8) : [];
   return {
     name: name.slice(0, 120),
@@ -129,6 +131,7 @@ function readProduct(body) {
     details: String(body.details || '').slice(0, 2000),
     category: String(body.category || '').trim().slice(0, 40) || 'Other',
     price,
+    compare,
     stock: Math.max(0, Math.floor(Number(body.stock) || 0)),
     sizes: String(body.sizes || '').split(',').map((s) => s.trim()).filter(Boolean).join(','),
     color: /^#[0-9a-f]{6}$/i.test(body.color || '') ? body.color : '#e7e2da',
@@ -140,9 +143,9 @@ function readProduct(body) {
 admin.post('/products', wrap(async (req, res) => {
   let f;
   try { f = readProduct(req.body); } catch (err) { return fail(res, err); }
-  const row = await db.one(`INSERT INTO products (name, description, details, category, price_cents, sizes, stock, color, active, images)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING id`,
-    [f.name, f.description, f.details, f.category, f.price, f.sizes, f.stock, f.color, f.active, JSON.stringify(f.images)]);
+  const row = await db.one(`INSERT INTO products (name, description, details, category, price_cents, sizes, stock, color, active, images, compare_cents)
+                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
+    [f.name, f.description, f.details, f.category, f.price, f.sizes, f.stock, f.color, f.active, JSON.stringify(f.images), f.compare]);
   res.json(row);
 }));
 
@@ -152,8 +155,8 @@ admin.put('/products/:id', wrap(async (req, res) => {
   let f;
   try { f = readProduct(req.body); } catch (err) { return fail(res, err); }
   await db.query(`UPDATE products SET name = $1, description = $2, details = $3, category = $4, price_cents = $5, sizes = $6,
-                  stock = $7, color = $8, active = $9, images = $10 WHERE id = $11`,
-    [f.name, f.description, f.details, f.category, f.price, f.sizes, f.stock, f.color, f.active, JSON.stringify(f.images), existing.id]);
+                  stock = $7, color = $8, active = $9, images = $10, compare_cents = $11 WHERE id = $12`,
+    [f.name, f.description, f.details, f.category, f.price, f.sizes, f.stock, f.color, f.active, JSON.stringify(f.images), f.compare, existing.id]);
   for (const old of existing.images) if (!f.images.includes(old)) storage.removeFile(old);
   res.json({ ok: true });
 }));

@@ -54,8 +54,9 @@
             </div>
             <div class="row2">
               <label class="field"><span>Price</span><input name="price" type="number" min="0.5" step="0.01" required></label>
-              <label class="field"><span>In stock</span><input name="stock" type="number" min="0" step="1" value="10" required></label>
+              <label class="field"><span>Was price, to show a discount (optional)</span><input name="compare_price" type="number" min="0.5" step="0.01" placeholder="Leave empty if not on sale"></label>
             </div>
+            <label class="field"><span>In stock</span><input name="stock" type="number" min="0" step="1" value="10" required></label>
             <label class="field"><span>Sizes, separated by commas (leave empty for one size)</span><input name="sizes" placeholder="XS, S, M, L, XL"></label>
             <label class="field"><span>Description</span><textarea name="description" maxlength="4000"></textarea></label>
             <label class="field"><span>Composition &amp; care, one point per line</span><textarea name="details" maxlength="2000" placeholder="100% wool&#10;Dry clean only&#10;Made in Portugal"></textarea></label>
@@ -117,9 +118,10 @@
               <div class="small muted">A wide, landscape photo or a short silent film works best. Without one, the homepage shows your first products instead.</div>
             </div>
             <div class="row2">
-              <label class="field"><span>Small line above the headline</span><input name="hero_kicker" maxlength="60"></label>
+              <label class="field"><span>Small label above the headline</span><input name="hero_kicker" maxlength="60"></label>
               <label class="field"><span>Headline</span><input name="hero_title" maxlength="80"></label>
             </div>
+            <div class="small muted" style="margin-top:-8px">In the headline, put *stars* around a word to give it the black box, or _underscores_ for thin italic. For example: Your everyday *wardrobe* _edit_</div>
             <label class="field"><span>Text under the headline</span><textarea name="hero_text" maxlength="400"></textarea></label>
             <label class="field"><span>About the studio (homepage and footer)</span><textarea name="about" maxlength="600"></textarea></label>
             <label class="field"><span>Delivery and returns</span><textarea name="shipping_info" maxlength="1200"></textarea></label>
