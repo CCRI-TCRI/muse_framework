@@ -147,6 +147,7 @@ const STARTERS = [
 ];
 
 const DEFAULT_SETTINGS = {
+  categories: 'Dresses, Jumpsuits, Two pieces, Trousers, Skirts, Accessories',
   announcement: 'Free delivery in Kampala on orders over UGX 300,000',
   whatsapp_numbers: '0744 315492, 0795567578',
   splash_title: 'Your Everyday *Shopping* _Companion!_',
@@ -197,6 +198,29 @@ async function upgradeV2(db) {
   await db.query(`INSERT INTO settings (key, value) VALUES ('upgraded_v2', '1') ON CONFLICT DO NOTHING`);
 }
 
+// Puts products into the shop's categories by name, once, for pieces added
+// before the category list existed (filed under "Other" or an old category
+// like Tops). Anything whose name doesn't say what it is stays as it was.
+const CATEGORY_GUESSES = [
+  [/jump ?suit|play ?suit|romper/i, 'Jumpsuits'],
+  [/two[ -]?piece|2[ -]?piece|co-?ord|\bset\b|beach ?wear/i, 'Two pieces'],
+  [/skirt/i, 'Skirts'],
+  [/dress|gown/i, 'Dresses'],
+  [/trouser|pant|jean|legging/i, 'Trousers'],
+  [/bag|tote|clutch|beanie|hat|cap|belt|scarf|jewel|necklace|earring|bracelet|accessor/i, 'Accessories'],
+];
+async function upgradeV3(db) {
+  const done = await db.query(`SELECT 1 FROM settings WHERE key = 'upgraded_v3'`);
+  if (done.rows.length) return;
+  const listed = DEFAULT_SETTINGS.categories.split(',').map((c) => c.trim());
+  const { rows } = await db.query('SELECT id, name, category FROM products WHERE NOT (category = ANY($1::text[]))', [listed]);
+  for (const p of rows) {
+    const hit = CATEGORY_GUESSES.find(([re]) => re.test(p.name));
+    if (hit) await db.query('UPDATE products SET category = $1 WHERE id = $2', [hit[1], p.id]);
+  }
+  await db.query(`INSERT INTO settings (key, value) VALUES ('upgraded_v3', '1') ON CONFLICT DO NOTHING`);
+}
+
 let ready;
 function init() {
   if (!ready) {
@@ -213,6 +237,7 @@ function init() {
       }
       const fresh = rows[0].n === 0;
       if (!fresh) await upgradeV2(db);
+      await upgradeV3(db);
       for (const [key, value] of Object.entries(DEFAULT_SETTINGS)) {
         await db.query('INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT DO NOTHING', [key, value]);
       }

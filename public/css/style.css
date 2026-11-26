@@ -1014,3 +1014,6 @@ body.bc-open .buycard { transform: translateY(var(--drag)); }
 .bc-body > * { flex-shrink: 0; }
 .bc-group { width: 100%; }
 @media (min-width: 861px) { .pdp .sheet { position: sticky; top: 96px; align-self: start; max-height: calc(100vh - 112px); overflow-y: auto; scrollbar-width: none; } .pdp .sheet::-webkit-scrollbar { display: none; } .pdp .viewer { position: static; } }
+/* six category tiles: 3 across on computers, 2 across on phones */
+.cat-tiles { grid-template-columns: repeat(3, 1fr); }
+@media (max-width: 860px) { .cat-tiles { grid-template-columns: repeat(2, 1fr); } }

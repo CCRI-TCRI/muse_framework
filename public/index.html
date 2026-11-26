@@ -129,7 +129,7 @@
         <div class="promo-art">${media}</div>`;
 
       // Category chips filter the "New items" grid right here.
-      const cats = ['All', ...new Set(products.map((p) => p.category))];
+      const cats = ['All', ...Store.categories()];
       let current = 'All';
       const chips = document.getElementById('chips');
       function draw() {
@@ -146,11 +146,15 @@
 
       document.getElementById('about').textContent = s.about;
 
-      const firstOfEach = [...new Map(products.map((p) => [p.category, p])).values()];
-      if (firstOfEach.length > 1) {
+      // One tile per category, showing its newest piece (or a drawing if it's empty for now).
+      const list = Store.categories();
+      if (list.length) {
         document.getElementById('cats-section').classList.remove('hidden');
-        document.getElementById('cats').innerHTML = firstOfEach.slice(0, 4).map((p) => `
-          <a class="cat-tile reveal" style="--tint:${Store.tint(p.id + 2)}" href="/shop?category=${encodeURIComponent(p.category)}">${art(p)}<span class="label">${esc(p.category)}</span></a>`).join('');
+        document.getElementById('cats').innerHTML = list.map((cat, i) => {
+          const p = products.find((x) => x.category === cat && x.images.length) || products.find((x) => x.category === cat)
+            || { id: i, name: cat, category: cat, images: [], color: '#d9d4cc' };
+          return `<a class="cat-tile reveal" style="--tint:${Store.tint(i + 2)}" href="/shop?category=${encodeURIComponent(cat)}">${art(p)}<span class="label">${esc(cat)}</span></a>`;
+        }).join('');
       }
 
       const films = await Store.api('/videos');

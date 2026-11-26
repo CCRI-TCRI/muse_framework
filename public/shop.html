@@ -33,7 +33,7 @@
       await Store.chrome(savedView ? 'saved' : 'shop');
       document.getElementById('search-slot').innerHTML = Store.searchRow(q);
       const products = await Store.products();
-      const cats = ['All', ...new Set(products.map((p) => p.category))];
+      const cats = ['All', ...Store.categories()];
       let current = cats.includes(params.get('category')) ? params.get('category') : 'All';
 
       function draw() {

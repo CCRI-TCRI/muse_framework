@@ -75,15 +75,19 @@ const Store = (() => {
     bag: '<path d="M46 100H154L164 222H36Z"/><path d="M74 100Q74 46 100 46 126 46 126 100M86 100Q86 62 100 62 114 62 114 100"/>',
     beanie: '<path d="M50 166Q50 72 100 72 150 72 150 166"/><path d="M44 166H156V202H44ZM58 166V202M72 166V202M86 166V202M100 166V202M114 166V202M128 166V202M142 166V202M76 166Q78 108 94 76M124 166Q122 108 106 76"/>',
     shoe: '<path d="M30 176Q30 140 50 134L96 124Q112 120 124 140L170 156Q184 162 184 178V194H30Z"/><path d="M30 182H184M96 124 102 150M110 128 116 150"/>',
+    jumpsuit: '<path d="M82 28 84 64M118 28 116 64"/><path d="M84 64Q100 74 116 64L122 122 130 236H104L100 142 96 236H70L78 122Z"/><path d="M78 122H122"/>',
+    skirt: '<path d="M68 62H132L156 220Q100 232 44 220Z"/><path d="M68 76H132M86 76 80 222M114 76 120 222M100 76V226"/>',
+    twopiece: '<path d="M70 36Q100 48 130 36L140 52 132 94H68L60 52Z"/><path d="M70 110H130L146 224Q100 234 54 224Z"/><path d="M70 122H130"/>',
     hanger: '<path d="M100 76Q100 58 112 58 124 58 120 70 117 78 100 86L28 134H172L100 86"/>',
   };
 
   function sketchFor(p) {
     const s = `${p.category} ${p.name}`.toLowerCase();
     const rules = [
+      [/jump ?suit|play ?suit|romper/, 'jumpsuit'], [/two[ -]?piece|2[ -]?piece|co-?ord|beach ?wear/, 'twopiece'], [/skirt/, 'skirt'],
       [/coat|jacket|outer|blazer|trench|parka/, 'coat'], [/dress|gown/, 'dress'],
       [/knit|sweater|jumper|cardigan|cashmere|hoodie|sweat/, 'knit'], [/shirt|blouse/, 'shirt'],
-      [/trouser|pant|jean|bottom|short|skirt|denim/, 'trousers'], [/bag|tote|clutch|wallet/, 'bag'],
+      [/trouser|pant|jean|bottom|short|denim|legging/, 'trousers'], [/bag|tote|clutch|wallet/, 'bag'],
       [/beanie|hat|cap|scarf/, 'beanie'], [/shoe|boot|sneaker|loafer|trainer|sandal/, 'shoe'], [/tee|top|tank|vest|t-shirt/, 'tee'],
     ];
     const hit = rules.find(([re]) => re.test(s));
@@ -108,6 +112,11 @@ const Store = (() => {
     return `<div class="art"><div class="sketch">
       <svg viewBox="0 0 200 250" fill="${fill}" stroke="${stroke}" stroke-width="1.2" stroke-linejoin="round" stroke-linecap="round" role="img" aria-label="${esc(p.name)}">${sketchFor(p)}</svg>
     </div></div>`;
+  }
+
+  // The shop's categories, in the order set in admin (Shop settings).
+  function categories() {
+    return String((cfg && cfg.settings.categories) || '').split(',').map((c) => c.trim()).filter(Boolean);
   }
 
   // "Muhoozi Martin Clothes" -> "MM"
@@ -403,5 +412,5 @@ const Store = (() => {
 
   const live = () => livePromise;
 
-  return { variant, swatch, initials, myOrders, rememberOrder, tint, intl, shopNumbers, waLink, telLink, live, icon, headline, priceHtml, heartButton, searchRow, readSaved, toggleSaved, api, config, products, money, esc, art, card, isDark, readBag, writeBag, addToBag, bagCount, bagLines, bagClicks, subtotal, checkout, openDrawer, chrome, reveal };
+  return { categories, variant, swatch, initials, myOrders, rememberOrder, tint, intl, shopNumbers, waLink, telLink, live, icon, headline, priceHtml, heartButton, searchRow, readSaved, toggleSaved, api, config, products, money, esc, art, card, isDark, readBag, writeBag, addToBag, bagCount, bagLines, bagClicks, subtotal, checkout, openDrawer, chrome, reveal };
 })();

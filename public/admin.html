@@ -79,7 +79,7 @@
           <form class="form" id="product-form">
             <div class="row2">
               <label class="field"><span>Name</span><input name="name" required maxlength="120"></label>
-              <label class="field"><span>Category</span><input name="category" placeholder="Dresses, Tops, Outerwear..." list="cat-list"><datalist id="cat-list"></datalist></label>
+              <label class="field"><span>Category</span><select name="category" id="category-select" required></select></label>
             </div>
             <div class="row3">
               <label class="field"><span>Price (Uganda shillings)</span><input name="price" type="number" min="500" step="500" required></label>
@@ -178,6 +178,7 @@
         <form class="form" id="settings-form">
           <div class="box">
             <div class="box-head"><h2>Ordering</h2></div>
+            <label class="field"><span>Shop categories, in the order customers see them (separate with commas)</span><input name="categories" placeholder="Dresses, Jumpsuits, Two pieces, Trousers, Skirts, Accessories"></label>
             <label class="field"><span>WhatsApp numbers customers call or message after they order (separate with commas)</span><input name="whatsapp_numbers" placeholder="0744 315492, 0795567578"></label>
             <label class="field"><span>Delivery and payment info (shown on every product and in the footer)</span><textarea name="shipping_info" maxlength="1200"></textarea></label>
             <label class="field"><span>Banner along the top of the shop (leave empty to hide)</span><input name="announcement" maxlength="200"></label>

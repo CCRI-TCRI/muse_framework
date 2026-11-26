@@ -293,7 +293,7 @@ const Admin = (() => {
   async function loadProducts() {
     products = await api('/admin/products');
     drawProductTable();
-    $('cat-list').innerHTML = [...new Set(products.map((p) => p.category))].map((c) => `<option value="${esc(c)}">`).join('');
+    fillCategories();
     const options = '<option value="">None</option>' + products.filter((p) => p.active).map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
     document.querySelectorAll('[data-product-select]').forEach((s) => { const keep = s.value; s.innerHTML = options; s.value = keep; });
   }
@@ -317,8 +317,21 @@ const Admin = (() => {
   }
   $('product-search').addEventListener('input', drawProductTable);
 
+  // The category dropdown lists the shop's categories. A product still in an
+  // old category keeps it as an extra option until you move it.
+  function fillCategories(keep) {
+    const sel = $('category-select');
+    const list = Store.categories();
+    const current = keep !== undefined ? keep : sel.value;
+    const extra = current && !list.includes(current) ? [current] : [];
+    sel.innerHTML = '<option value="" disabled>Choose a category</option>'
+      + [...list, ...extra].map((c) => `<option value="${esc(c)}">${esc(c)}${extra.includes(c) ? ' (old)' : ''}</option>`).join('');
+    sel.value = current || '';
+  }
+
   function resetForm() {
     form.reset();
+    fillCategories('');
     editingId = null;
     images = [];
     drawImages();
@@ -333,7 +346,7 @@ const Admin = (() => {
     editingId = p.id;
     const f = form.elements;
     f.name.value = p.name;
-    f.category.value = p.category;
+    fillCategories(p.category);
     f.price.value = p.price_cents / 100;
     f.compare_price.value = p.compare_cents ? p.compare_cents / 100 : '';
     f.stock.value = p.stock;
@@ -503,6 +516,7 @@ const Admin = (() => {
     try {
       const saved = await api('/admin/settings', { method: 'PUT', body });
       cfg.settings = saved;
+      fillCategories();
       msg.className = 'note ok';
       msg.textContent = 'Saved. The shop is updated.';
     } catch (err) {
