@@ -1,27 +1,26 @@
 # Muse Wear
 
-A designer clothing shop you run yourself. Customers browse the collection, choose a size and pay by card. You add pieces, upload films, and go live from your phone or laptop camera so people can watch you try things on and buy straight from the stream.
+A clothing shop you run yourself, built to feel like a phone app. Customers browse, choose a size and place an order, then confirm it with you on WhatsApp and pay by Mobile Money or cash on delivery. You add pieces, upload films, and go live from your phone so people can watch you try things on and buy straight from the stream. Prices are in Ugandan shillings.
 
 It runs on **Vercel** (recommended) or on your own computer.
 
 ## What's in it
 
 **The shop**
-- Homepage with a full-width hero picture or film, new arrivals, the latest films and category tiles
-- Shop page with category filters and sorting
-- Product pages with a photo gallery, size picker, and drop-downs for description, composition and care, and delivery
-- A bag that slides out from the side and remembers what people added
-- Card payments through Stripe Checkout, including Apple Pay and Google Pay, with the shipping address collected at checkout
-- Films page, and films linked to a product show on that product's page
+- Mobile app style: greeting header, search, a floating bottom menu, and a bag that slides up from the bottom
+- Homepage with a colourful banner (your own picture or film, or your newest pieces), category buttons, new items, category tiles and films
+- Shop page with search, category filters and sorting, plus a Saved list for pieces people heart
+- Product pages with a photo gallery, sizes, quantity, sale prices, and Buy now
+- **Checkout through WhatsApp**: customers give their name, phone and delivery location and place the order. The next screen asks them to call or WhatsApp your numbers, with buttons that open WhatsApp with the whole order already written out
 - Live page: watch the stream, chat, and add the piece being worn to the bag without leaving
 
-**The admin area (`/admin`)**
-- Sales, orders to ship and low stock at a glance
-- Products with up to 8 photos each (the first is the cover, the second appears on hover), sizes, stock, description and care details
-- Film uploads, linked to a product if you like
-- Orders with the customer's name, email and address, and a button to mark them shipped
-- Homepage: the hero picture or film, headline, top banner, about text, delivery info and Instagram link
-- Go live: camera preview, switch cameras, mute, pick the piece viewers can buy, reply in chat, and a replay saved to Films when you finish
+**The admin dashboard (`/admin`)**, with its own sidebar layout that turns into a top bar on phones
+- Overview: total sales, this week's sales, new orders, orders to deliver, latest orders and pieces running low
+- Orders: New, Paid, Delivered and Cancelled. Each order has a WhatsApp button to message the customer, plus Mark paid, Mark delivered and Cancel. Stock comes down when you mark an order paid
+- Products with up to 8 photos each, a "was" price for discounts, sizes, stock, description and care details
+- Films, linked to a product if you like
+- Live studio: camera preview, switch cameras, mute, pick the piece viewers can buy, reply in chat, and a replay saved to Films when you finish
+- Shop settings: your WhatsApp numbers, delivery and payment info, the top banner, and the homepage banner and text
 
 Until a product has photos, the shop shows a line drawing of the garment on the colour you pick, so it still looks finished on day one.
 
@@ -32,20 +31,16 @@ You'll need a free [Vercel](https://vercel.com) account connected to your GitHub
 1. **Import the project.** In Vercel, click *Add New > Project* and pick this GitHub repository. Leave every build setting as it is (the included `vercel.json` handles it) and click *Deploy*. The first deploy will load, but admin and checkout won't work until the next steps are done.
 2. **Add a database.** In the project, open the *Storage* tab, choose *Create Database*, pick **Neon** (Postgres) and connect it to the project. Vercel adds `DATABASE_URL` for you. The tables and starter products are created automatically the first time the site is visited.
 3. **Add file storage.** Still in *Storage*, create a **Blob** store and connect it. Vercel adds `BLOB_READ_WRITE_TOKEN`. Photos and films go here.
-4. **Set your password.** In *Settings > Environment Variables*, add `ADMIN_PASSWORD` with something long. Add `STORE_NAME` too if you want a different name.
+4. **Set your password.** In *Settings > Environment Variables*, add `ADMIN_PASSWORD` with something long. Add `STORE_NAME` too if you want a different name, and `CURRENCY` if you don't sell in Ugandan shillings.
 5. **Redeploy.** Go to *Deployments*, open the menu on the latest one and choose *Redeploy* so the new settings take effect.
 
 Then open `your-project.vercel.app/admin`, sign in and start adding your pieces. To use your own domain, add it under *Settings > Domains*.
 
-### Taking real payments
+### How orders and payment work
 
-The shop starts in test mode: checkout works but nobody is charged, and a note at the top of the site says so.
+There's no card payment. When a customer places an order it shows up in admin under **Orders > New**, and the customer is asked to call or WhatsApp the numbers in **Shop settings** (0744 315492 and 0795567578 to start with). Once they've paid by Mobile Money, or you've agreed cash on delivery, press **Mark paid**. That takes the items out of stock. Press **Mark delivered** when it arrives.
 
-1. Create a [Stripe](https://stripe.com) account and finish their business details so payouts can reach your bank.
-2. In Stripe, go to *Developers > API keys* and copy the **secret key**. Add it in Vercel as `STRIPE_SECRET_KEY`. Use the `sk_test_...` key first if you want to try it with Stripe's test card (4242 4242 4242 4242, any future date, any CVC), then swap in the `sk_live_...` key.
-3. In Stripe, go to *Developers > Webhooks*, add an endpoint at `https://your-domain/api/stripe/webhook`, and choose the events `checkout.session.completed` and `checkout.session.async_payment_succeeded`. Copy its signing secret into Vercel as `STRIPE_WEBHOOK_SECRET`. This marks orders paid even if a customer closes the tab right after paying.
-4. Set `CURRENCY` (for example `gbp` or `eur`) and `SHIP_COUNTRIES` (for example `GB,IE,FR`) if the defaults don't suit you.
-5. Redeploy.
+Stock is checked when an order is placed, but only taken off when you mark it paid, so two people could order the last piece at the same time. You'll see both orders and can sort it out on WhatsApp.
 
 ### What the free plans cover
 
@@ -90,7 +85,7 @@ src/app.js          the web app
 src/config.js       reads settings
 src/db.js           database tables, starter products and homepage text
 src/routes.js       shop and admin API
-src/payments.js     checkout, Stripe and marking orders paid
+src/orders.js       placing orders and changing their status
 src/live.js         live stream setup, chat and the pinned piece
 src/storage.js      photo and film uploads (Vercel Blob or local folder)
 public/             the website itself
@@ -98,3 +93,5 @@ public/js/vendor/   Vercel's upload helper, prebuilt for the browser (npm run bu
 ```
 
 The eight starter pieces are there so the shop doesn't look empty at first. Edit or delete them once you've added your own.
+
+Shops created before the switch to shillings and WhatsApp are updated automatically the first time the new version runs: starter pieces you haven't edited get shilling prices and brighter colours, homepage text you haven't changed gets the new wording, and old test orders are removed. Anything you changed yourself is left alone.

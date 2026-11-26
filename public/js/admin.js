@@ -1,8 +1,24 @@
 const Admin = (() => {
   const $ = (id) => document.getElementById(id);
-  const { api, esc, money, art } = Store;
+  const { api, esc, money, art, tint } = Store;
   let cfg;
   let products = [];
+  let orders = [];
+
+  /* ----- icons for the sidebar ----- */
+  const ICONS = {
+    grid: '<rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/>',
+    receipt: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2z"/><path d="M9 8h6M9 12h6"/>',
+    tag: '<path d="M3 12V4a1 1 0 0 1 1-1h8l9 9-9 9z"/><circle cx="8" cy="8" r="1.5"/>',
+    film: '<rect x="3" y="5" width="18" height="14" rx="3"/><path d="m10 9.5 4.5 2.5-4.5 2.5z"/>',
+    live: '<circle cx="12" cy="12" r="2.2"/><path d="M7.8 7.8a6 6 0 0 0 0 8.4M16.2 7.8a6 6 0 0 1 0 8.4M4.9 4.9a10 10 0 0 0 0 14.2M19.1 4.9a10 10 0 0 1 0 14.2"/>',
+    cog: '<circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/>',
+    store: '<path d="M4 9.5 5.5 4h13L20 9.5"/><path d="M4 9.5a2.7 2.7 0 0 0 5.3 0 2.7 2.7 0 0 0 5.4 0 2.7 2.7 0 0 0 5.3 0"/><path d="M5 11v9h14v-9"/>',
+    out: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="M10 16l-4-4 4-4M6 12h10"/>',
+    image: '<rect x="3" y="4" width="18" height="16" rx="3"/><circle cx="9" cy="10" r="2"/><path d="m21 16-5-5-8 9"/>',
+  };
+  const icon = (n) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[n]}</svg>`;
+  document.querySelectorAll('[data-icon]').forEach((el) => { el.outerHTML = icon(el.dataset.icon); });
 
   function showError(el, err) {
     el.textContent = err.message || String(err);
@@ -56,7 +72,13 @@ const Admin = (() => {
 
   /* ----- sign in ----- */
   async function start() {
-    cfg = await Store.chrome('');
+    cfg = await Store.config();
+    const initial = (cfg.storeName.trim()[0] || 'M').toUpperCase();
+    document.querySelectorAll('[data-initial]').forEach((el) => { el.textContent = initial; });
+    document.querySelectorAll('[data-store-name]').forEach((el) => { el.textContent = cfg.storeName; });
+    document.title = `Admin · ${cfg.storeName}`;
+    $('today').textContent = new Date().toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long' });
+
     const me = await api('/admin/me');
     if (me.loggedIn) return showAdmin();
     $('login-view').classList.remove('hidden');
@@ -85,36 +107,156 @@ const Admin = (() => {
     await loadProducts();
     loadOverview();
     document.dispatchEvent(new Event('admin:ready'));
+    setInterval(() => { if (!document.hidden) refreshBadge(); }, 60000);
   }
 
-  $('tabs').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-tab]');
-    if (!b) return;
-    document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x === b));
-    document.querySelectorAll('[data-panel]').forEach((p) => p.classList.toggle('hidden', p.dataset.panel !== b.dataset.tab));
-    ({ overview: loadOverview, products: loadProducts, films: loadFilms, orders: loadOrders, homepage: loadSettings })[b.dataset.tab]?.();
+  /* ----- navigation ----- */
+  const TITLES = { overview: 'Overview', orders: 'Orders', products: 'Products', films: 'Films', studio: 'Live studio', settings: 'Shop settings' };
+  const LOADERS = { overview: () => loadOverview(), orders: () => loadOrders(), products: () => loadProducts(), films: () => loadFilms(), settings: () => loadSettings() };
+
+  function go(tab) {
+    document.querySelectorAll('#tabs button').forEach((x) => x.classList.toggle('on', x.dataset.tab === tab));
+    document.querySelectorAll('[data-panel]').forEach((p) => p.classList.toggle('hidden', p.dataset.panel !== tab));
+    $('page-title').textContent = TITLES[tab];
+    $('quick-add').classList.toggle('hidden', tab === 'studio');
+    LOADERS[tab]?.();
+    window.scrollTo({ top: 0 });
+  }
+  $('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) go(b.dataset.tab); });
+  document.addEventListener('click', (e) => {
+    const g = e.target.closest('[data-goto]');
+    if (g) go(g.dataset.goto);
   });
+  $('quick-add').addEventListener('click', () => { go('products'); resetForm(); openForm(); });
 
   /* ----- overview ----- */
+  function refreshBadge(n) {
+    const set = (count) => { $('new-badge').textContent = count; $('new-badge').classList.toggle('hidden', !count); };
+    if (n !== undefined) return set(n);
+    api('/admin/summary').then((s) => set(s.newOrders)).catch(() => {});
+  }
+
   async function loadOverview() {
     const s = await api('/admin/summary');
+    refreshBadge(s.newOrders);
     $('stats').innerHTML = `
-      <div class="stat"><div class="eyebrow">Sales</div><div class="n">${money(s.revenue)}</div></div>
-      <div class="stat"><div class="eyebrow">Paid orders</div><div class="n">${s.orders}</div></div>
-      <div class="stat"><div class="eyebrow">To ship</div><div class="n">${s.toShip}</div></div>
-      <div class="stat"><div class="eyebrow">Low stock</div><div class="n">${s.lowStock}</div></div>`;
+      <div class="kpi a"><div class="label">Total sales</div><div class="n">${money(s.revenue)}</div><div class="sub">${s.orders} paid ${s.orders === 1 ? 'order' : 'orders'}</div></div>
+      <div class="kpi b"><div class="label">This week</div><div class="n">${money(s.weekRevenue)}</div><div class="sub">Paid in the last 7 days</div></div>
+      <button class="kpi c" data-goto="orders"><div class="label">New orders</div><div class="n">${s.newOrders}</div><div class="sub">Waiting for WhatsApp confirmation</div></button>
+      <button class="kpi d" data-goto="orders"><div class="label">To deliver</div><div class="n">${s.toDeliver}</div><div class="sub">Paid, not yet delivered</div></button>`;
+
+    $('recent').innerHTML = s.recent.map((o) => `
+      <div class="row-item">
+        <span class="av">${esc((o.customer_name || '?')[0].toUpperCase())}</span>
+        <div><b>${esc(o.customer_name || 'Customer')} · #${o.id}</b><small>${new Date(o.created_at).toLocaleString()}</small></div>
+        <div style="text-align:right"><b>${money(o.total_cents)}</b><span class="pill ${o.status}">${statusLabel(o.status)}</span></div>
+      </div>`).join('') || '<p class="muted small">No orders yet. They will appear here as soon as someone checks out.</p>';
+
+    $('low').innerHTML = s.lowStock.map((p) => `
+      <div class="row-item">
+        <span class="av" style="background:var(--p-peach);color:var(--coral)">${p.stock}</span>
+        <div><b>${esc(p.name)}</b><small>${p.stock === 0 ? 'Sold out' : `${p.stock} left`}</small></div>
+        <button class="link" data-edit-product="${p.id}">Restock</button>
+      </div>`).join('') || '<p class="muted small">Everything is well stocked.</p>';
+
     const tips = [];
-    if (s.demoMode) tips.push(`<p><strong>Payments are in test mode.</strong> Checkout works end to end but no cards are charged.
-      To take real payments, add your Stripe secret key as <code>STRIPE_SECRET_KEY</code> and redeploy. The README has the steps.</p>`);
-    if (s.uploadMode === 'local') tips.push(`<p><strong>Photos and films are saved on this computer</strong> in the <code>uploads</code> folder.
-      On Vercel, connect a Blob store to the project so they're kept safely.</p>`);
-    $('setup').innerHTML = tips.length ? `<h2>Before you open</h2>${tips.join('')}` : '<h2>All set</h2><p>Payments are live and uploads are stored safely.</p>';
+    if (!Store.shopNumbers().length) tips.push('<li>Add your WhatsApp numbers in <button class="link" data-goto="settings">Shop settings</button> so customers can confirm orders.</li>');
+    if (s.uploadMode === 'local') tips.push('<li>Photos are being saved on this computer. On Vercel, connect a Blob store so they are kept safely.</li>');
+    if (products.length && products.every((p) => !p.images.length)) tips.push('<li>Add real photos to your products. They make the biggest difference.</li>');
+    $('setup').innerHTML = `<div class="box-head"><h2>${tips.length ? 'To do' : 'All set'}</h2></div>${tips.length ? `<ul style="margin:0;padding-left:20px;display:grid;gap:8px;font-size:14px">${tips.join('')}</ul>` : '<p class="muted small" style="margin:0">Orders, photos and WhatsApp are all set up.</p>'}`;
   }
+
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-edit-product]');
+    if (!b) return;
+    go('products');
+    editProduct(Number(b.dataset.editProduct));
+  });
+
+  /* ----- orders ----- */
+  const statusLabel = (s) => ({ pending: 'New', paid: 'Paid', shipped: 'Delivered', cancelled: 'Cancelled' }[s] || s);
+  let orderFilter = 'pending';
+
+  async function loadOrders() {
+    orders = await api('/admin/orders');
+    refreshBadge(orders.filter((o) => o.status === 'pending').length);
+    drawOrders();
+  }
+
+  function drawOrders() {
+    const count = (st) => orders.filter((o) => st === 'all' || o.status === st).length;
+    $('order-filters').innerHTML = ['pending', 'paid', 'shipped', 'cancelled', 'all'].map((st) => `
+      <button class="${st === orderFilter ? 'on' : ''}" data-filter="${st}">${st === 'all' ? 'All' : statusLabel(st)}<em>${count(st)}</em></button>`).join('');
+    const list = orders.filter((o) => orderFilter === 'all' || o.status === orderFilter);
+    $('order-list').innerHTML = list.map(orderCard).join('') || `<div class="box"><p class="muted" style="margin:0">No ${orderFilter === 'all' ? '' : statusLabel(orderFilter).toLowerCase() + ' '}orders.</p></div>`;
+  }
+
+  function orderCard(o) {
+    const first = (o.customer_name || '').split(' ')[0] || 'there';
+    const items = o.items.map((i) => `${i.quantity} x ${i.name}${i.size ? ` (${i.size})` : ''}`).join(', ');
+    const msg = {
+      pending: `Hello ${first}, thank you for your order #${o.id} from ${cfg.storeName} (${items}). The total is ${money(o.total_cents)}. `,
+      paid: `Hello ${first}, your order #${o.id} from ${cfg.storeName} is paid and on its way to you soon.`,
+      shipped: `Hello ${first}, how are you finding your order #${o.id} from ${cfg.storeName}?`,
+      cancelled: `Hello ${first}, about your order #${o.id} from ${cfg.storeName}: `,
+    }[o.status];
+    const hasPhone = (o.phone || '').replace(/\D/g, '').length >= 9;
+    return `
+      <article class="order-card ${o.status}">
+        <div class="top"><b>#${o.id}</b><span class="pill ${o.status}">${statusLabel(o.status)}</span></div>
+        <div class="who">
+          <span class="name">${esc(o.customer_name || 'No name')}</span>
+          ${o.phone ? `<a href="${Store.telLink(o.phone)}">${esc(o.phone)}</a>` : ''}
+          ${o.shipping_address ? `<span class="addr">${esc(o.shipping_address)}</span>` : ''}
+          ${o.notes ? `<span class="small muted">Note: ${esc(o.notes)}</span>` : ''}
+          <span class="small muted">${new Date(o.created_at).toLocaleString()}</span>
+        </div>
+        <div class="items">
+          ${o.items.map((i) => `<div class="totals"><span>${i.quantity} &times; ${esc(i.name)}${i.size ? `, ${esc(i.size)}` : ''}</span><span>${money(i.unit_price_cents * i.quantity)}</span></div>`).join('')}
+          <div class="totals big"><span>Total</span><span>${money(o.total_cents)}</span></div>
+        </div>
+        <div class="acts">
+          ${hasPhone ? `<a class="btn wa" href="${Store.waLink(o.phone, msg)}" target="_blank" rel="noopener">${WA_ICON.replace('fill:#25d366', 'fill:currentColor')}WhatsApp</a>` : ''}
+          ${o.status === 'pending' ? `<button class="btn violet" data-status="paid" data-order="${o.id}">Mark paid</button>` : ''}
+          ${o.status === 'paid' ? `<button class="btn mint" data-status="shipped" data-order="${o.id}">Mark delivered</button>` : ''}
+          ${['pending', 'paid'].includes(o.status) ? `<button class="btn ghost" data-status="cancelled" data-order="${o.id}">Cancel</button>` : ''}
+        </div>
+      </article>`;
+  }
+
+  $('order-filters').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-filter]');
+    if (!b) return;
+    orderFilter = b.dataset.filter;
+    drawOrders();
+  });
+
+  $('order-list').addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-status]');
+    if (!b) return;
+    const st = b.dataset.status;
+    const ask = { paid: 'Mark this order as paid? Its items come out of stock.', shipped: 'Mark this order as delivered?', cancelled: 'Cancel this order?' }[st];
+    if (!confirm(ask)) return;
+    b.disabled = true;
+    try {
+      await api('/admin/orders/' + b.dataset.order, { method: 'PATCH', body: { status: st } });
+      await loadOrders();
+      if (st === 'paid') loadProducts();
+    } catch (err) {
+      alert(err.message);
+      b.disabled = false;
+    }
+  });
 
   /* ----- products ----- */
   let images = [];
   let editingId = null;
   const form = $('product-form');
+
+  function openForm() {
+    $('product-box').classList.remove('hidden');
+    $('product-box').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
   function drawImages() {
     $('image-list').innerHTML = images.map((url, i) => `
@@ -150,24 +292,30 @@ const Admin = (() => {
 
   async function loadProducts() {
     products = await api('/admin/products');
+    drawProductTable();
+    $('cat-list').innerHTML = [...new Set(products.map((p) => p.category))].map((c) => `<option value="${esc(c)}">`).join('');
+    const options = '<option value="">None</option>' + products.filter((p) => p.active).map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+    document.querySelectorAll('[data-product-select]').forEach((s) => { const keep = s.value; s.innerHTML = options; s.value = keep; });
+  }
+
+  function drawProductTable() {
+    const q = $('product-search').value.trim().toLowerCase();
+    const list = products.filter((p) => !q || `${p.name} ${p.category}`.toLowerCase().includes(q));
     $('product-table').innerHTML = `<tr><th></th><th>Piece</th><th>Price</th><th>Stock</th><th>Sizes</th><th></th></tr>` +
-      (products.map((p) => `
+      (list.map((p) => `
         <tr>
-          <td><div class="thumb">${art(p)}</div></td>
-          <td>${esc(p.name)}<div class="small muted">${esc(p.category)}${p.active ? '' : ', hidden'}</div></td>
-          <td>${money(p.price_cents)}${p.compare_cents ? `<div class="small muted" style="text-decoration:line-through">${money(p.compare_cents)}</div>` : ''}</td>
-          <td>${p.stock <= 3 ? `<strong style="color:var(--red)">${p.stock}</strong>` : p.stock}</td>
+          <td><div class="thumb" style="--tint:${tint(p.id)}">${art(p)}</div></td>
+          <td><b style="font-weight:600">${esc(p.name)}</b><span class="small muted">${esc(p.category)}${p.active ? '' : ' · hidden'}</span></td>
+          <td style="white-space:nowrap">${money(p.price_cents)}${p.compare_cents ? `<span class="small muted" style="text-decoration:line-through">${money(p.compare_cents)}</span>` : ''}</td>
+          <td>${p.stock <= 3 ? `<span class="pill pending">${p.stock}</span>` : p.stock}</td>
           <td class="small">${esc(p.sizes.replaceAll(',', ', ')) || 'One size'}</td>
           <td style="white-space:nowrap;text-align:right">
             <button class="btn ghost sm" data-edit="${p.id}">Edit</button>
             <button class="btn danger sm" data-delete="${p.id}">Delete</button>
           </td>
-        </tr>`).join('') || '<tr><td colspan="6" class="muted">No products yet.</td></tr>');
-
-    $('cat-list').innerHTML = [...new Set(products.map((p) => p.category))].map((c) => `<option value="${esc(c)}">`).join('');
-    const options = '<option value="">None</option>' + products.filter((p) => p.active).map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
-    document.querySelectorAll('[data-product-select]').forEach((s) => { const keep = s.value; s.innerHTML = options; s.value = keep; });
+        </tr>`).join('') || '<tr><td colspan="6" class="muted">No products found.</td></tr>');
   }
+  $('product-search').addEventListener('input', drawProductTable);
 
   function resetForm() {
     form.reset();
@@ -175,34 +323,36 @@ const Admin = (() => {
     images = [];
     drawImages();
     $('product-form-title').textContent = 'Add a product';
-    $('cancel-edit').classList.add('hidden');
     $('product-error').classList.add('hidden');
   }
-  $('cancel-edit').addEventListener('click', resetForm);
+  $('cancel-edit').addEventListener('click', () => { resetForm(); $('product-box').classList.add('hidden'); });
+
+  function editProduct(id) {
+    const p = products.find((x) => x.id === id);
+    if (!p) return;
+    editingId = p.id;
+    const f = form.elements;
+    f.name.value = p.name;
+    f.category.value = p.category;
+    f.price.value = p.price_cents / 100;
+    f.compare_price.value = p.compare_cents ? p.compare_cents / 100 : '';
+    f.stock.value = p.stock;
+    f.sizes.value = p.sizes.replaceAll(',', ', ');
+    f.description.value = p.description;
+    f.details.value = p.details;
+    f.color.value = p.color;
+    f.active.checked = p.active;
+    images = [...p.images];
+    drawImages();
+    $('product-form-title').textContent = `Editing: ${p.name}`;
+    $('product-error').classList.add('hidden');
+    openForm();
+  }
 
   $('product-table').addEventListener('click', async (e) => {
     const edit = e.target.closest('[data-edit]');
     const del = e.target.closest('[data-delete]');
-    if (edit) {
-      const p = products.find((x) => x.id === Number(edit.dataset.edit));
-      editingId = p.id;
-      const f = form.elements;
-      f.name.value = p.name;
-      f.category.value = p.category;
-      f.price.value = (p.price_cents / 100).toFixed(2);
-      f.compare_price.value = p.compare_cents ? (p.compare_cents / 100).toFixed(2) : '';
-      f.stock.value = p.stock;
-      f.sizes.value = p.sizes.replaceAll(',', ', ');
-      f.description.value = p.description;
-      f.details.value = p.details;
-      f.color.value = p.color;
-      f.active.checked = p.active;
-      images = [...p.images];
-      drawImages();
-      $('product-form-title').textContent = `Editing: ${p.name}`;
-      $('cancel-edit').classList.remove('hidden');
-      form.scrollIntoView({ behavior: 'smooth' });
-    }
+    if (edit) editProduct(Number(edit.dataset.edit));
     if (del) {
       const p = products.find((x) => x.id === Number(del.dataset.delete));
       if (!confirm(`Delete "${p.name}"? Past orders keep their record, but the piece leaves the shop for good.`)) return;
@@ -215,14 +365,15 @@ const Admin = (() => {
     e.preventDefault();
     const f = form.elements;
     const body = {
-      name: f.name.value, category: f.category.value, price: f.price.value, compare_price: f.compare_price.value, stock: f.stock.value, sizes: f.sizes.value,
-      description: f.description.value, details: f.details.value, color: f.color.value, active: f.active.checked, images,
+      name: f.name.value, category: f.category.value, price: f.price.value, compare_price: f.compare_price.value, stock: f.stock.value,
+      sizes: f.sizes.value, description: f.description.value, details: f.details.value, color: f.color.value, active: f.active.checked, images,
     };
     $('save-product').disabled = true;
     $('product-error').classList.add('hidden');
     try {
       await api(editingId ? `/admin/products/${editingId}` : '/admin/products', { method: editingId ? 'PUT' : 'POST', body });
       resetForm();
+      $('product-box').classList.add('hidden');
       loadProducts();
     } catch (err) {
       showError($('product-error'), err);
@@ -255,15 +406,21 @@ const Admin = (() => {
     loadFilms();
   });
 
-  $('video-form').addEventListener('submit', async (e) => {
+  const videoForm = $('video-form');
+  videoForm.elements.file.addEventListener('change', (e) => {
+    $('video-file-name').textContent = e.target.files[0]?.name || 'Choose a video (MP4, MOV or WebM)';
+  });
+  videoForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const f = e.currentTarget;
-    const btn = f.querySelector('button');
-    btn.disabled = true;
+    const f = videoForm.elements;
+    const btn = videoForm.querySelector('button.btn');
     $('video-error').classList.add('hidden');
+    if (!f.file.files[0]) return showError($('video-error'), 'Choose a video file first.');
+    btn.disabled = true;
     try {
-      await addFilm({ file: f.elements.file.files[0], title: f.elements.title.value, description: f.elements.description.value, productId: f.elements.product_id.value }, $('video-progress'));
-      f.reset();
+      await addFilm({ file: f.file.files[0], title: f.title.value, description: f.description.value, productId: f.product_id.value }, $('video-progress'));
+      videoForm.reset();
+      $('video-file-name').textContent = 'Choose a video (MP4, MOV or WebM)';
       loadFilms();
     } catch (err) {
       showError($('video-error'), err);
@@ -272,49 +429,25 @@ const Admin = (() => {
     }
   });
 
-  /* ----- orders ----- */
-  async function loadOrders() {
-    const orders = await api('/admin/orders');
-    $('order-table').innerHTML = `<tr><th>No.</th><th>Date</th><th>Customer</th><th>Items</th><th>Total</th><th>Status</th></tr>` +
-      (orders.map((o) => `
-        <tr>
-          <td>${o.id}</td>
-          <td class="small">${new Date(o.created_at).toLocaleString()}</td>
-          <td class="small">${esc(o.customer_name || '')}${o.email ? `<br>${esc(o.email)}` : ''}
-            ${o.shipping_address ? `<div class="muted" style="white-space:pre-line;margin-top:6px">${esc(o.shipping_address)}</div>` : ''}</td>
-          <td class="small">${o.items.map((i) => `${i.quantity} &times; ${esc(i.name)}${i.size ? `, ${esc(i.size)}` : ''}`).join('<br>')}</td>
-          <td>${money(o.total_cents)}${o.demo ? '<div class="small muted">test</div>' : ''}</td>
-          <td><span class="pill ${o.status}">${o.status === 'pending' ? 'unpaid' : o.status}</span>
-            ${o.status === 'paid' ? `<div style="margin-top:8px"><button class="btn sm" data-ship="${o.id}">Mark shipped</button></div>` : ''}</td>
-        </tr>`).join('') || '<tr><td colspan="6" class="muted">No orders yet.</td></tr>');
-  }
-
-  $('order-table').addEventListener('click', async (e) => {
-    const b = e.target.closest('[data-ship]');
-    if (!b) return;
-    await api('/admin/orders/' + b.dataset.ship, { method: 'PATCH', body: { status: 'shipped' } });
-    loadOrders();
-  });
-
-  /* ----- homepage ----- */
+  /* ----- settings ----- */
   let hero = { url: '', type: '' };
   const sform = $('settings-form');
+  let settingsLoading = null;
 
   function drawHero() {
     $('hero-preview').innerHTML = hero.url
-      ? `${hero.type === 'video' ? `<video src="${esc(hero.url)}" muted loop autoplay playsinline style="width:100%"></video>` : `<img src="${esc(hero.url)}" alt="" style="width:100%">`}
-         <button type="button" class="text-btn" id="hero-remove" style="margin-top:8px">Remove</button>`
+      ? `${hero.type === 'video' ? `<video src="${esc(hero.url)}" muted loop autoplay playsinline style="width:100%;border-radius:14px"></video>` : `<img src="${esc(hero.url)}" alt="" style="width:100%;border-radius:14px">`}
+         <button type="button" class="link" id="hero-remove" style="margin-top:8px">Remove</button>`
       : '';
     $('hero-remove')?.addEventListener('click', () => { hero = { url: '', type: '' }; drawHero(); });
   }
 
-  let settingsLoading = null;
   function loadSettings() {
     settingsLoading = (async () => {
-    const s = (await Store.api('/config')).settings;
-    for (const el of sform.elements) if (el.name && el.name in s) el.value = s[el.name];
-    hero = { url: s.hero_media, type: s.hero_media_type };
-    drawHero();
+      const s = (await api('/config')).settings;
+      for (const el of sform.elements) if (el.name && el.name in s) el.value = s[el.name];
+      hero = { url: s.hero_media, type: s.hero_media_type };
+      drawHero();
     })();
     return settingsLoading;
   }
@@ -325,10 +458,13 @@ const Admin = (() => {
     if (!file) return;
     try {
       await settingsLoading; // don't let the saved settings overwrite this new upload
-      hero = { url: await uploadFile(file, file.type.startsWith('video') ? 'videos' : 'products', $('hero-progress')), type: file.type.startsWith('video') ? 'video' : 'image' };
+      const isVideo = file.type.startsWith('video');
+      hero = { url: await uploadFile(file, isVideo ? 'videos' : 'products', $('hero-progress')), type: isVideo ? 'video' : 'image' };
       drawHero();
     } catch (err) {
-      showError($('settings-msg'), err);
+      const msg = $('settings-msg');
+      msg.className = 'note err';
+      msg.textContent = err.message;
     }
   });
 
@@ -339,9 +475,10 @@ const Admin = (() => {
     body.hero_media_type = hero.type;
     const msg = $('settings-msg');
     try {
-      await api('/admin/settings', { method: 'PUT', body });
+      const saved = await api('/admin/settings', { method: 'PUT', body });
+      cfg.settings = saved;
       msg.className = 'note ok';
-      msg.textContent = 'Saved. The homepage is updated.';
+      msg.textContent = 'Saved. The shop is updated.';
     } catch (err) {
       msg.className = 'note err';
       msg.textContent = err.message;

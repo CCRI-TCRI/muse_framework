@@ -54,7 +54,7 @@
         ? `<div class="media">${s.hero_media_type === 'video'
             ? `<video src="${esc(s.hero_media)}" autoplay muted loop playsinline></video>`
             : `<img src="${esc(s.hero_media)}" alt="">`}</div>`
-        : `<div class="promo-stack">${products.slice(0, 3).map((p) => `<a href="/product?id=${p.id}">${art(p)}</a>`).join('')}</div>`;
+        : `<div class="promo-stack">${products.slice(0, 3).map((p) => `<a href="/product?id=${p.id}" style="background:${Store.tint(p.id)}">${art(p)}</a>`).join('')}</div>`;
       document.getElementById('promo').innerHTML = `
         <div class="promo-copy">
           ${s.hero_kicker ? `<span class="promo-tag">${esc(s.hero_kicker)}</span>` : ''}
@@ -86,7 +86,7 @@
       if (firstOfEach.length > 1) {
         document.getElementById('cats-section').classList.remove('hidden');
         document.getElementById('cats').innerHTML = firstOfEach.slice(0, 4).map((p) => `
-          <a class="cat-tile reveal" href="/shop?category=${encodeURIComponent(p.category)}">${art(p)}<span class="label">${esc(p.category)}</span></a>`).join('');
+          <a class="cat-tile reveal" style="--tint:${Store.tint(p.id + 2)}" href="/shop?category=${encodeURIComponent(p.category)}">${art(p)}<span class="label">${esc(p.category)}</span></a>`).join('');
       }
 
       const films = await Store.api('/videos');

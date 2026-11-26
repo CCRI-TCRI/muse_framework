@@ -25,16 +25,12 @@ module.exports = {
   port: Number(env.PORT) || 3000,
   storeName: env.STORE_NAME || 'Muse Wear',
   publicUrl: (env.PUBLIC_URL || '').replace(/\/$/, ''),
-  currency: (env.CURRENCY || 'usd').toLowerCase(),
-  shipCountries: (env.SHIP_COUNTRIES || 'US,CA,GB,IE,AU,NZ,DE,FR,NL,BE,ES,IT,SE,DK,NO,FI,AT,CH,PT')
-    .split(',').map((c) => c.trim().toUpperCase()).filter(Boolean),
+  currency: (env.CURRENCY || 'ugx').toLowerCase(),
   adminPassword,
   generatedPassword,
   sessionSecret,
   databaseUrl: env.DATABASE_URL || env.POSTGRES_URL || '',
   blobToken: env.BLOB_READ_WRITE_TOKEN || '',
-  stripeSecretKey: env.STRIPE_SECRET_KEY || '',
-  stripeWebhookSecret: env.STRIPE_WEBHOOK_SECRET || '',
   turn: env.TURN_URL
     ? { urls: env.TURN_URL, username: env.TURN_USERNAME || '', credential: env.TURN_CREDENTIAL || '' }
     : null,

@@ -1,7 +1,7 @@
 const express = require('express');
 const db = require('./db');
 const config = require('./config');
-const payments = require('./payments');
+const orders = require('./orders');
 const live = require('./live');
 const auth = require('./auth');
 const storage = require('./storage');
@@ -11,7 +11,6 @@ router.use(express.json({ limit: '200kb' }));
 
 const wrap = (fn) => (req, res, next) => Promise.resolve(fn(req, res, next)).catch(next);
 const fail = (res, err, code = 400) => res.status(code).json({ error: err.message || String(err) });
-const baseUrl = (req) => config.publicUrl || `${req.protocol}://${req.get('host')}`;
 
 const publicProduct = (p) => ({
   id: p.id, name: p.name, description: p.description, details: p.details, category: p.category,
@@ -26,7 +25,7 @@ router.get('/config', wrap(async (req, res) => {
   const iceServers = [{ urls: ['stun:stun.l.google.com:19302', 'stun:stun1.l.google.com:19302'] }];
   if (config.turn) iceServers.push(config.turn);
   res.json({
-    storeName: config.storeName, currency: config.currency, demoMode: payments.demoMode,
+    storeName: config.storeName, currency: config.currency,
     uploadMode: storage.mode, iceServers, settings: await db.getSettings(),
   });
 }));
@@ -52,20 +51,14 @@ router.get('/videos', wrap(async (req, res) => {
                            ORDER BY v.id DESC`));
 }));
 
-router.post('/checkout', wrap(async (req, res) => {
-  try {
-    res.json(await payments.startCheckout(req.body.items, baseUrl(req)));
-  } catch (err) {
-    if (err.type && String(err.type).startsWith('Stripe')) {
-      console.error('Stripe error:', err.message);
-      return fail(res, new Error('The payment provider had a problem. Please try again in a minute.'), 502);
-    }
-    fail(res, err);
-  }
+router.post('/orders', wrap(async (req, res) => {
+  try { res.json(await orders.place(req.body)); } catch (err) { fail(res, err); }
 }));
 
-router.get('/orders/confirm', wrap(async (req, res) => {
-  res.json(await payments.confirm({ sessionId: req.query.session_id, orderId: req.query.order, token: req.query.token }));
+router.get('/orders/:id', wrap(async (req, res) => {
+  const o = await orders.summary(req.params.id, req.query.token);
+  if (!o) return fail(res, new Error('We could not find that order.'), 404);
+  res.json(o);
 }));
 
 /* ---------- live (viewers) ---------- */
@@ -108,11 +101,19 @@ if (storage.mode === 'local') {
 }
 
 admin.get('/summary', wrap(async (req, res) => {
-  const sales = await db.one(`SELECT COUNT(*)::int AS orders, COALESCE(SUM(total_cents), 0)::int AS revenue
+  const sales = await db.one(`SELECT COUNT(*)::int AS orders, COALESCE(SUM(total_cents), 0)::bigint AS revenue
                               FROM orders WHERE status IN ('paid', 'shipped')`);
-  const toShip = await db.one(`SELECT COUNT(*)::int AS n FROM orders WHERE status = 'paid'`);
-  const lowStock = await db.one('SELECT COUNT(*)::int AS n FROM products WHERE active AND stock <= 3');
-  res.json({ ...sales, toShip: toShip.n, lowStock: lowStock.n, demoMode: payments.demoMode, uploadMode: storage.mode });
+  const week = await db.one(`SELECT COALESCE(SUM(total_cents), 0)::bigint AS revenue FROM orders
+                             WHERE status IN ('paid', 'shipped') AND paid_at > now() - interval '7 days'`);
+  const counts = await db.one(`SELECT COUNT(*) FILTER (WHERE status = 'pending')::int AS new_orders,
+                                      COUNT(*) FILTER (WHERE status = 'paid')::int AS to_deliver FROM orders`);
+  const lowStock = await db.query('SELECT id, name, stock FROM products WHERE active AND stock <= 3 ORDER BY stock, name');
+  const products = await db.one('SELECT COUNT(*) FILTER (WHERE active)::int AS live, COUNT(*)::int AS total FROM products');
+  const recent = await db.query(`SELECT id, status, total_cents, customer_name, created_at FROM orders ORDER BY id DESC LIMIT 6`);
+  res.json({
+    orders: sales.orders, revenue: Number(sales.revenue), weekRevenue: Number(week.revenue),
+    newOrders: counts.new_orders, toDeliver: counts.to_deliver, lowStock, products, recent, uploadMode: storage.mode,
+  });
 }));
 
 admin.get('/products', wrap(async (req, res) => res.json(await db.query('SELECT * FROM products ORDER BY id DESC'))));
@@ -190,17 +191,13 @@ admin.delete('/videos/:id', wrap(async (req, res) => {
 }));
 
 admin.get('/orders', wrap(async (req, res) => {
-  const orders = await db.query(`SELECT * FROM orders WHERE status <> 'pending' OR created_at > now() - interval '1 day'
-                                 ORDER BY id DESC LIMIT 300`);
-  const items = await db.query('SELECT * FROM order_items WHERE order_id = ANY($1::int[]) ORDER BY id', [orders.map((o) => o.id)]);
-  res.json(orders.map((o) => ({ ...o, items: items.filter((i) => i.order_id === o.id) })));
+  const list = await db.query('SELECT * FROM orders ORDER BY id DESC LIMIT 500');
+  const items = await db.query('SELECT * FROM order_items WHERE order_id = ANY($1::int[]) ORDER BY id', [list.map((o) => o.id)]);
+  res.json(list.map((o) => ({ ...o, items: items.filter((i) => i.order_id === o.id) })));
 }));
 
 admin.patch('/orders/:id', wrap(async (req, res) => {
-  if (!['paid', 'shipped', 'cancelled'].includes(req.body.status)) return fail(res, new Error('Unknown status.'));
-  const r = await db.one(`UPDATE orders SET status = $1 WHERE id = $2 AND status <> 'pending' RETURNING id`, [req.body.status, Number(req.params.id)]);
-  if (!r) return fail(res, new Error('Only paid orders can be updated.'));
-  res.json({ ok: true });
+  try { await orders.setStatus(req.params.id, req.body.status); res.json({ ok: true }); } catch (err) { fail(res, err); }
 }));
 
 admin.put('/settings', wrap(async (req, res) => {

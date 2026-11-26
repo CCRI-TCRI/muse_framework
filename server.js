@@ -2,7 +2,6 @@
 const app = require('./src/app');
 const config = require('./src/config');
 const db = require('./src/db');
-const payments = require('./src/payments');
 const storage = require('./src/storage');
 
 db.init().then(() => {
@@ -13,7 +12,6 @@ db.init().then(() => {
     if (config.generatedPassword) console.log(`  No ADMIN_PASSWORD set, so this one works until the next restart: ${config.adminPassword}`);
     console.log(`  Database: ${config.databaseUrl ? 'Postgres (DATABASE_URL)' : 'local, in the data/ folder'}`);
     console.log(`  Uploads: ${storage.mode === 'blob' ? 'Vercel Blob' : 'local, in the uploads/ folder'}`);
-    if (payments.demoMode) console.log('  Payments: TEST MODE. Add STRIPE_SECRET_KEY to take real card payments.');
     console.log('');
   });
 }).catch((err) => {

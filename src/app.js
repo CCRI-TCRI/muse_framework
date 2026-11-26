@@ -1,23 +1,11 @@
 const path = require('node:path');
 const express = require('express');
 const config = require('./config');
-const payments = require('./payments');
 const routes = require('./routes');
 
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', true);
-
-// Stripe needs the raw body to check the signature, so this comes before any JSON parsing.
-app.post('/api/stripe/webhook', express.raw({ type: 'application/json', limit: '1mb' }), async (req, res) => {
-  try {
-    await payments.webhook(req.body, req.headers['stripe-signature']);
-    res.json({ received: true });
-  } catch (err) {
-    console.error('Webhook error:', err.message);
-    res.status(400).send(`Webhook error: ${err.message}`);
-  }
-});
 
 app.use('/api', routes);
 

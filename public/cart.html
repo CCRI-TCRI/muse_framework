@@ -13,16 +13,16 @@
     <div class="bag-page">
       <section>
         <h1>Your bag</h1>
-        <div id="cancelled" class="note hidden">Payment was cancelled and nothing was charged. Your bag is just as you left it.</div>
+        <div id="cancelled" class="note hidden">Your bag is just as you left it.</div>
         <div id="lines"></div>
       </section>
       <aside class="summary" id="summary">
         <div class="eyebrow">Summary</div>
         <div class="totals"><span>Subtotal</span><span id="total"></span></div>
-        <div class="totals muted small"><span>Shipping</span><span>At checkout</span></div>
+        <div class="totals muted small"><span>Delivery</span><span>Confirmed on WhatsApp</span></div>
         <div class="note err hidden" id="error"></div>
         <button class="btn block" id="checkout">Checkout</button>
-        <div class="small muted">Payments are handled securely by Stripe. Cards, Apple Pay and Google Pay are accepted.</div>
+        <div class="small muted">Order now, then confirm with us on WhatsApp. Pay by Mobile Money or cash on delivery.</div>
       </aside>
     </div>
   </main>
@@ -42,7 +42,7 @@
         document.getElementById('total').textContent = Store.money(Store.subtotal(items));
       }
       lines.addEventListener('click', (e) => { if (Store.bagClicks(e)) draw(); });
-      document.getElementById('checkout').addEventListener('click', (e) => Store.checkout(e.currentTarget, document.getElementById('error')));
+      document.getElementById('checkout').addEventListener('click', (e) => Store.checkout());
       draw();
     })();
   </script>

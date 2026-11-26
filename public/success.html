@@ -3,48 +3,66 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Order confirmed</title>
+  <title>Order received</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-  <main class="narrow" style="padding-top:clamp(48px,8vw,120px);padding-bottom:clamp(64px,9vw,140px)">
-    <div id="out"><p class="muted">Confirming your payment...</p></div>
+  <main class="wrap">
+    <div class="done" id="out"><p class="muted" style="text-align:center;padding:60px 0">Loading your order...</p></div>
   </main>
 
   <script src="/js/common.js"></script>
+  <script src="/js/whatsapp-icon.js"></script>
   <script>
     (async () => {
       const { esc, money } = Store;
-      await Store.chrome('bag');
+      const cfg = await Store.chrome('bag');
+      document.body.classList.add('no-bottom-nav');
       const q = new URLSearchParams(location.search);
       const out = document.getElementById('out');
+      let o;
       try {
-        const o = await Store.api('/orders/confirm?' + new URLSearchParams({
-          session_id: q.get('session_id') || '', order: q.get('order') || '', token: q.get('token') || '',
-        }));
-        if (o.status === 'paid' || o.status === 'shipped') {
-          Store.writeBag([]);
-          out.innerHTML = `
-            <div class="eyebrow">Order no. ${o.id}</div>
-            <h1 style="font-size:clamp(44px,6vw,84px);margin:16px 0 22px">Thank you</h1>
-            <p class="muted">Your order is confirmed${o.email ? ` and a receipt is on its way to ${esc(o.email)}` : ''}. We'll let you know as soon as it ships.</p>
-            ${o.demo ? '<p class="note">This was a test order. No card was charged.</p>' : ''}
-            <div style="margin:40px 0;border-top:1px solid var(--line)">
-              ${o.items.map((i) => `<div class="totals" style="padding:16px 0;border-bottom:1px solid var(--line)">
-                <span>${i.quantity} &times; ${esc(i.name)}${i.size ? `, ${esc(i.size)}` : ''}</span><span>${money(i.unit_price_cents * i.quantity)}</span></div>`).join('')}
-              <div class="totals big" style="padding:20px 0"><span>Total</span><span>${money(o.total_cents)}</span></div>
-            </div>
-            <a class="btn" href="/shop">Continue shopping</a>`;
-        } else if (o.status === 'unpaid') {
-          out.innerHTML = `<h1 style="font-size:48px;margin-bottom:18px">Almost there</h1><p class="muted">Your bank hasn't confirmed the payment yet. Refresh this page in a minute. If it doesn't go through, you won't be charged.</p>`;
-        } else {
-          out.innerHTML = `<h1 style="font-size:48px;margin-bottom:18px">We couldn't find that order</h1><a class="u-link" href="/shop">Back to the shop</a>`;
-        }
+        o = await Store.api(`/orders/${encodeURIComponent(q.get('order') || '')}?token=${encodeURIComponent(q.get('token') || '')}`);
       } catch (err) {
-        out.innerHTML = `<h1 style="font-size:48px;margin-bottom:18px">Something went wrong</h1><p class="muted">${esc(err.message)} If you were charged, your order is safe. Refresh this page to try again.</p>`;
+        out.innerHTML = `<div class="empty"><h2>We couldn't find that order</h2><p class="muted">${esc(err.message)}</p><a class="btn" href="/shop">Back to the shop</a></div>`;
+        return;
       }
+
+      // The message that opens in WhatsApp, so the shop sees the whole order straight away.
+      const lines = o.items.map((i) => `• ${i.quantity} x ${i.name}${i.size ? ` (size ${i.size})` : ''}: ${money(i.unit_price_cents * i.quantity)}`).join('\n');
+      const message = `Hello ${cfg.storeName}, I've just placed order #${o.id} on your website.\n\n${lines}\n\nTotal: ${money(o.total_cents)}\n\nName: ${o.customer_name}\nPhone: ${o.phone}\nDeliver to: ${o.shipping_address}${o.notes ? `\nNotes: ${o.notes}` : ''}\n\nPlease confirm my order and how to pay.`;
+      const numbers = Store.shopNumbers();
+      const state = { pending: 'Waiting for you to confirm on WhatsApp', paid: 'Paid. We are getting it ready', shipped: 'On its way to you', cancelled: 'This order was cancelled' }[o.status];
+
+      out.innerHTML = `
+        <section class="done-hero">
+          <div class="tick">${'<svg class="i" viewBox="0 0 24 24"><path d="M5 12.5 10 17.5 19 7"/></svg>'}</div>
+          <div class="eyebrow">Order #${o.id}</div>
+          <h1>Order received!</h1>
+          <p>${esc(state)}</p>
+        </section>
+
+        ${o.status === 'pending' ? `
+        <section class="contact">
+          <h2>Now call or WhatsApp us</h2>
+          <p>To complete your order, message or call us on WhatsApp on either number below. Tap the green button and your order details are written for you. We'll confirm delivery and how to pay (Mobile Money or cash on delivery).</p>
+          ${numbers.map((n) => `
+            <div class="contact-row">
+              <span class="num">${esc(n)}<small>WhatsApp and calls</small></span>
+              <a class="btn wa sm" href="${Store.waLink(n, message)}" target="_blank" rel="noopener">${WA_ICON.replace('fill:#25d366', 'fill:currentColor')}WhatsApp</a>
+              <a class="btn call sm" href="${Store.telLink(n)}">Call</a>
+            </div>`).join('')}
+        </section>` : ''}
+
+        <section class="receipt">
+          <h2 style="font-size:18px;margin-bottom:8px">Order summary</h2>
+          ${o.items.map((i) => `<div class="totals"><span>${i.quantity} &times; ${esc(i.name)}${i.size ? `, ${esc(i.size)}` : ''}</span><span>${money(i.unit_price_cents * i.quantity)}</span></div>`).join('')}
+          <div class="totals big"><span>Total</span><span>${money(o.total_cents)}</span></div>
+          <div class="small muted" style="margin-top:12px">Delivering to ${esc(o.customer_name)}, ${esc(o.shipping_address)}. We'll call you on ${esc(o.phone)}.</div>
+        </section>
+        <div style="text-align:center;margin-top:22px"><a class="btn ghost" href="/shop">Continue shopping</a></div>`;
     })();
   </script>
 </body>

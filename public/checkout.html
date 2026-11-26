@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Checkout</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <div class="app-top">
+      <a class="icon-btn" href="/cart" aria-label="Back to bag" id="back"></a>
+      <h1>Checkout</h1>
+      <span class="spacer"></span>
+    </div>
+    <div class="checkout" id="page">
+      <section>
+        <h1 class="page">Checkout</h1>
+        <div class="card-box">
+          <h2>Delivery details</h2>
+          <form class="form" id="form" autocomplete="on">
+            <label class="field"><span>Full name</span><input name="name" autocomplete="name" required maxlength="80"></label>
+            <label class="field"><span>Phone number (WhatsApp if you have it)</span><input name="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="07XX XXX XXX" required maxlength="30"></label>
+            <label class="field"><span>Delivery location</span><textarea name="address" required maxlength="300" placeholder="Area, street or building, and a landmark. For example: Ntinda, Kigoowa road, opposite Capital Shoppers" style="min-height:90px"></textarea></label>
+            <label class="field"><span>Notes (optional)</span><input name="notes" maxlength="500" placeholder="Best time to deliver, gift wrapping..."></label>
+          </form>
+        </div>
+      </section>
+
+      <aside class="side">
+        <div class="card-box">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px">
+            <h2 style="margin:0">Your order</h2><a class="u-link" href="/cart">Edit</a>
+          </div>
+          <div id="lines"></div>
+          <div class="totals" style="margin-top:10px"><span class="muted">Subtotal</span><span id="subtotal"></span></div>
+          <div class="totals" style="margin-top:6px"><span class="muted">Delivery</span><span class="muted">Confirmed on WhatsApp</span></div>
+          <div class="totals big" style="margin-top:12px;padding-top:12px;border-top:1px dashed var(--line)"><span>Total</span><span id="total"></span></div>
+        </div>
+        <div class="how">
+          <h3><span id="wa-icon"></span>How ordering works</h3>
+          <ol>
+            <li>Place your order here. Nothing is paid yet.</li>
+            <li>Call or message us on WhatsApp to confirm it.</li>
+            <li>Pay by Mobile Money or cash on delivery, and we bring it to you.</li>
+          </ol>
+          <div class="nums" id="nums"></div>
+        </div>
+        <div class="place-bar">
+          <div class="note err hidden" id="error"></div>
+          <button class="btn block" id="place" form="form">Place order</button>
+          <div class="small muted" style="text-align:center">You'll confirm the order with us on WhatsApp next.</div>
+        </div>
+      </aside>
+    </div>
+  </main>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/whatsapp-icon.js"></script>
+  <script>
+    (async () => {
+      const { esc, money, art, tint, icon } = Store;
+      await Store.chrome('bag');
+      document.body.classList.add('no-bottom-nav');
+      document.getElementById('back').innerHTML = icon('back');
+      document.getElementById('wa-icon').innerHTML = WA_ICON;
+      document.getElementById('nums').textContent = Store.shopNumbers().join('  ·  ');
+
+      const items = Store.readBag();
+      if (!items.length) {
+        document.getElementById('page').innerHTML = '<div class="empty" style="grid-column:1/-1"><h2>Your bag is empty</h2><p class="muted">Add a few pieces first.</p><a class="btn" href="/shop">Go shopping</a></div>';
+        return;
+      }
+      const total = Store.subtotal(items);
+      document.getElementById('lines').innerHTML = items.map((i) => `
+        <div class="mini-line">
+          <div class="frame" style="--tint:${tint(i.id)}">${art(i)}</div>
+          <div><b>${esc(i.name)}</b><span class="small muted">${i.size ? `Size ${esc(i.size)} · ` : ''}Qty ${i.qty}</span></div>
+          <span style="font-weight:600">${money(i.price_cents * i.qty)}</span>
+        </div>`).join('');
+      document.getElementById('subtotal').textContent = money(total);
+      document.getElementById('total').textContent = money(total);
+      document.getElementById('place').textContent = `Place order · ${money(total)}`;
+
+      // Remember delivery details on this phone for next time.
+      const form = document.getElementById('form');
+      try {
+        const saved = JSON.parse(localStorage.getItem('store-details') || '{}');
+        for (const k of ['name', 'phone', 'address']) if (saved[k]) form.elements[k].value = saved[k];
+      } catch {}
+
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const btn = document.getElementById('place');
+        const err = document.getElementById('error');
+        const label = btn.textContent;
+        btn.disabled = true;
+        btn.textContent = 'Placing your order...';
+        err.classList.add('hidden');
+        const details = Object.fromEntries(['name', 'phone', 'address', 'notes'].map((k) => [k, form.elements[k].value.trim()]));
+        try {
+          const r = await Store.api('/orders', { method: 'POST', body: { ...details, items: items.map(({ id, size, qty }) => ({ id, size, qty })) } });
+          try { localStorage.setItem('store-details', JSON.stringify({ name: details.name, phone: details.phone, address: details.address })); } catch {}
+          Store.writeBag([]);
+          location.href = `/success?order=${r.id}&token=${encodeURIComponent(r.token)}`;
+        } catch (ex) {
+          err.textContent = ex.message;
+          err.classList.remove('hidden');
+          btn.disabled = false;
+          btn.textContent = label;
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

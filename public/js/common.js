@@ -29,11 +29,34 @@ const Store = (() => {
     return productsPromise;
   }
 
+  // Prices are stored in hundredths, like cents. Shillings have no smaller
+  // unit, so they always show as whole numbers: UGX 450,000.
   function money(cents) {
-    const currency = ((cfg && cfg.currency) || 'usd').toUpperCase();
-    const whole = cents % 100 === 0;
-    return new Intl.NumberFormat(undefined, { style: 'currency', currency, minimumFractionDigits: whole ? 0 : 2 }).format(cents / 100);
+    const currency = ((cfg && cfg.currency) || 'ugx').toUpperCase();
+    const whole = currency === 'UGX' || cents % 100 === 0;
+    const locale = currency === 'UGX' ? 'en-UG' : undefined;
+    return new Intl.NumberFormat(locale, { style: 'currency', currency, currencyDisplay: 'code', minimumFractionDigits: whole ? 0 : 2, maximumFractionDigits: whole ? 0 : 2 })
+      .format(cents / 100).replace(/\u00a0/g, ' ');
   }
+
+  // A soft colour per product, so the shop isn't a wall of grey.
+  const TINTS = ['var(--p-lav)', 'var(--p-peach)', 'var(--p-mint)', 'var(--p-sky)', 'var(--p-butter)', 'var(--p-rose)'];
+  const tint = (id) => TINTS[Math.abs(Number(id) || 0) % TINTS.length];
+
+  /* ----- WhatsApp ----- */
+  // "0744 315492" becomes 256744315492 (Uganda), which is what wa.me and tel: links need.
+  function intl(num) {
+    let d = String(num).replace(/\D/g, '');
+    if (d.startsWith('00')) d = d.slice(2);
+    if (d.startsWith('0')) d = '256' + d.slice(1);
+    else if (d.length === 9) d = '256' + d;
+    return d;
+  }
+  function shopNumbers() {
+    return String((cfg && cfg.settings.whatsapp_numbers) || '').split(/[,;\n]+/).map((n) => n.trim()).filter((n) => n.replace(/\D/g, '').length >= 9);
+  }
+  const waLink = (num, text = '') => `https://wa.me/${intl(num)}${text ? `?text=${encodeURIComponent(text)}` : ''}`;
+  const telLink = (num) => `tel:+${intl(num)}`;
 
   function esc(s) {
     return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -134,7 +157,7 @@ const Store = (() => {
       : off >= 5 ? `<span class="tag sale">${off}% off</span>`
       : p.low_stock ? `<span class="tag">Only ${p.low_stock} left</span>` : '';
     return `<div class="card reveal">
-      <a class="frame" href="/product?id=${p.id}">${tag}${art(p, { hover: true })}<span class="shop-pill">${icon('bag')}Shop</span></a>
+      <a class="frame" href="/product?id=${p.id}" style="--tint:${tint(p.id)}">${tag}${art(p, { hover: true })}<span class="shop-pill">${icon('bag')}Shop</span></a>
       ${heartButton(p.id)}
       <a class="meta" href="/product?id=${p.id}"><span class="name">${esc(p.name)}</span><span class="price">${priceHtml(p)}</span></a>
     </div>`;
@@ -162,7 +185,7 @@ const Store = (() => {
   function bagLines(items) {
     return items.map((i, n) => `
       <div class="line">
-        <a class="frame" href="/product?id=${i.id}">${art(i)}</a>
+        <a class="frame" href="/product?id=${i.id}" style="--tint:${tint(i.id)}">${art(i)}</a>
         <div>
           <div class="name">${esc(i.name)}</div>
           ${i.size ? `<div class="small muted">Size ${esc(i.size)}</div>` : ''}
@@ -190,20 +213,8 @@ const Store = (() => {
 
   const subtotal = (items) => items.reduce((s, i) => s + i.price_cents * i.qty, 0);
 
-  async function checkout(btn, errEl) {
-    const label = btn.textContent;
-    btn.disabled = true;
-    btn.textContent = 'One moment';
-    errEl?.classList.add('hidden');
-    try {
-      const items = readBag().map(({ id, size, qty }) => ({ id, size, qty }));
-      const { url } = await api('/checkout', { method: 'POST', body: { items } });
-      location.href = url;
-    } catch (err) {
-      if (errEl) { errEl.textContent = err.message; errEl.classList.remove('hidden'); }
-      btn.disabled = false;
-      btn.textContent = label;
-    }
+  function checkout() {
+    location.href = '/checkout';
   }
 
   /* ----- drawers ----- */
@@ -246,7 +257,6 @@ const Store = (() => {
 
     const top = document.createElement('div');
     top.innerHTML = `
-      ${c.demoMode ? '<div class="announce demo">Test mode: checkout works, but no cards are charged yet.</div>' : ''}
       ${s.announcement ? `<div class="announce">${esc(s.announcement)}</div>` : ''}
       <header class="site-header">
         <div class="bar">
@@ -280,7 +290,7 @@ const Store = (() => {
         <div class="drawer-body" id="bag-body"></div>
         <div class="drawer-foot" id="bag-foot">
           <div class="totals big"><span>Subtotal</span><span id="bag-subtotal"></span></div>
-          <div class="small muted">Shipping and taxes are worked out at checkout.</div>
+          <div class="small muted">Delivery is confirmed with you on WhatsApp.</div>
           <div class="note err hidden" id="bag-error"></div>
           <button class="btn block" id="drawer-checkout">Checkout</button>
           <a class="btn ghost block" href="/cart">View bag</a>
@@ -312,7 +322,7 @@ const Store = (() => {
           </ul></div>
           <div><h4>Delivery &amp; returns</h4><p>${esc(s.shipping_info)}</p></div>
         </div>
-        <div class="foot-base"><span>&copy; ${new Date().getFullYear()} ${name}</span><span>Secure payments by Stripe</span></div>
+        <div class="foot-base"><span>&copy; ${new Date().getFullYear()} ${name}</span><span>Order on WhatsApp · Mobile Money or cash on delivery</span></div>
       </div></div>`;
     document.body.append(footer);
 
@@ -325,7 +335,7 @@ const Store = (() => {
     });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawers(); });
     document.getElementById('bag-body').addEventListener('click', bagClicks);
-    document.getElementById('drawer-checkout').addEventListener('click', (e) => checkout(e.currentTarget, document.getElementById('bag-error')));
+    document.getElementById('drawer-checkout').addEventListener('click', checkout);
 
     document.title = document.title ? `${document.title} · ${c.storeName}` : c.storeName;
     writeBag(readBag());
@@ -359,5 +369,5 @@ const Store = (() => {
 
   const live = () => livePromise;
 
-  return { live, icon, headline, priceHtml, heartButton, searchRow, readSaved, toggleSaved, api, config, products, money, esc, art, card, isDark, readBag, writeBag, addToBag, bagCount, bagLines, bagClicks, subtotal, checkout, openDrawer, chrome, reveal };
+  return { tint, intl, shopNumbers, waLink, telLink, live, icon, headline, priceHtml, heartButton, searchRow, readSaved, toggleSaved, api, config, products, money, esc, art, card, isDark, readBag, writeBag, addToBag, bagCount, bagLines, bagClicks, subtotal, checkout, openDrawer, chrome, reveal };
 })();

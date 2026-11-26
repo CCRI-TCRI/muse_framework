@@ -37,7 +37,7 @@
         <nav class="crumbs"><a href="/shop">Shop</a> / <a href="/shop?category=${encodeURIComponent(p.category)}">${esc(p.category)}</a></nav>
         <div class="pdp">
           <div class="viewer">
-            <div class="stagebox">
+            <div class="stagebox" style="--tint:${Store.tint(p.id)}">
               <div class="top">
                 <a class="icon-btn" href="javascript:history.length > 1 ? history.back() : location.assign('/shop')" aria-label="Back">${icon('back')}</a>
                 <span class="title">Details</span>
@@ -45,7 +45,7 @@
               </div>
               <div id="main-shot" style="position:absolute;inset:0">${art(p)}</div>
             </div>
-            ${shots > 1 ? `<div class="thumbs">${p.images.map((_, i) => `<button class="${i === 0 ? 'on' : ''}" data-shot="${i}" aria-label="Photo ${i + 1}">${art(p, { index: i })}</button>`).join('')}</div>` : ''}
+            ${shots > 1 ? `<div class="thumbs" style="--tint:${Store.tint(p.id)}">${p.images.map((_, i) => `<button class="${i === 0 ? 'on' : ''}" data-shot="${i}" aria-label="Photo ${i + 1}">${art(p, { index: i })}</button>`).join('')}</div>` : ''}
           </div>
 
           <div class="sheet">
@@ -128,7 +128,7 @@
         return true;
       }
       document.getElementById('add').addEventListener('click', () => { if (add()) Store.openDrawer('bag'); });
-      document.getElementById('buy').addEventListener('click', (e) => { if (add()) Store.checkout(e.currentTarget, document.getElementById('note')); });
+      document.getElementById('buy').addEventListener('click', () => { if (add()) location.href = '/checkout'; });
       Store.reveal();
     })();
   </script>
