@@ -14,12 +14,17 @@
       <div class="wrap">
         <div class="stage">
           <video id="video" autoplay playsinline muted class="hidden"></video>
+          <div class="live-top">
+            <a class="lt-back" href="/" aria-label="Back to the shop" id="lt-back"></a>
+            <div class="lt-title"><b id="lt-store"></b><span id="lt-title">Live try-ons</span></div>
+          </div>
           <div class="badge hidden" id="badge"><span class="on-air">Live</span><span id="count">0 watching</span></div>
           <button class="btn light sm sound hidden" id="unmute">Tap for sound</button>
           <div class="idle" id="idle">
             <div class="eyebrow">Live try-ons</div>
             <h2>We're off air</h2>
-            <p class="small" style="color:rgba(236,232,225,.7)">Keep this page open and the next session will start here by itself. Until then, have a look at our <a class="u-link" href="/videos">films</a>.</p>
+            <p class="small" style="color:rgba(255,255,255,.72)">Keep this page open and the next session will start here by itself. We'll show the pieces as we try them on, and you can ask questions in the chat.</p>
+            <div class="idle-actions"><a class="btn light sm" href="/shop">Shop now</a><a class="btn sm idle-films" href="/videos">Watch films</a></div>
           </div>
           <div class="pinned hidden" id="pinned"></div>
         </div>

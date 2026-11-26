@@ -5,6 +5,10 @@
   const cfg = await Store.chrome('live');
   const $ = (id) => document.getElementById(id);
   const video = $('video');
+  const theater = document.querySelector('.theater');
+  document.body.classList.add('live-page', 'no-bottom-nav');
+  $('lt-back').innerHTML = Store.icon('back');
+  $('lt-store').textContent = cfg.storeName;
 
   let session = null;      // which stream we're watching
   let viewerId = null;     // our seat in that stream
@@ -79,6 +83,8 @@
           <button class="btn" id="pin-add">Add to bag</button>
         </div><div class="small" id="pin-note" style="margin-top:6px"></div>` : '<div class="small" style="margin-top:6px">Sold out</div>'}
       </div>`;
+    // keep the floating chat just above the card, whatever its height
+    requestAnimationFrame(() => theater.style.setProperty('--pin-h', `${box.offsetHeight}px`));
     $('pin-add')?.addEventListener('click', () => {
       const size = p.sizes.length > 1 ? $('pin-size').value : (p.sizes[0] || '');
       if (p.sizes.length > 1 && !size) { $('pin-note').textContent = 'Choose a size'; return; }
@@ -100,6 +106,8 @@
   }
 
   function setLive(st) {
+    theater.classList.toggle('is-live', !!st.live);
+    $('lt-title').textContent = st.live ? st.title : 'Live try-ons';
     $('idle').classList.toggle('hidden', st.live);
     $('badge').classList.toggle('hidden', !st.live);
     if (st.live) {
@@ -121,7 +129,11 @@
       const st = r.status;
       setLive(st);
       if (!st.live) {
-        if (wasLive) addChat({ text: 'The stream has ended. Thank you for watching.' });
+        if (wasLive) {
+          addChat({ text: 'The stream has ended. Thank you for watching.' });
+          $('idle').querySelector('h2').textContent = 'Thanks for watching';
+          $('idle').querySelector('p').textContent = 'The stream has ended. Everything we showed is in the shop, and the next session will start here by itself.';
+        }
         wasLive = false; session = null; viewerId = null;
         dropVideo();
       } else {

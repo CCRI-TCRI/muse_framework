@@ -320,11 +320,12 @@ const Store = (() => {
           <a class="btn ghost block" href="/cart">View bag</a>
         </div>
       </aside>
-      <nav class="bottom-nav" aria-label="Main">
-        <a href="/" class="${on('home')}">${icon('home')}<span>Home</span></a>
-        <a href="/shop" class="${on('shop')}" aria-label="Search">${icon('search')}<span>Search</span></a>
-        <a href="/shop?saved=1" class="${on('saved')}" aria-label="Saved">${icon('heart')}<span>Saved</span></a>
-        <a href="/orders" class="${on('orders')}" aria-label="My orders">${icon('user')}<span>Orders</span></a>
+      <nav class="bottom-nav glass" id="tabbar" aria-label="Main">
+        <a data-tab href="/" class="${on('home')}">${icon('home')}<span>Home</span></a>
+        <a data-tab href="/shop" class="${on('shop')}">${icon('search')}<span>Search</span></a>
+        <a data-tab href="/shop?saved=1" class="${on('saved')}">${icon('heart')}<span>Saved</span></a>
+        <a data-tab href="/orders" class="${on('orders')}">${icon('user')}<span>Orders</span></a>
+        <span class="lens" aria-hidden="true"><span class="lens-track"></span></span>
       </nav>`;
     document.body.append(...extra.children);
 
@@ -361,6 +362,12 @@ const Store = (() => {
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawers(); });
     document.getElementById('bag-body').addEventListener('click', bagClicks);
     document.getElementById('drawer-checkout').addEventListener('click', checkout);
+
+    // The liquid glass menu (phones).
+    const glass = document.createElement('script');
+    glass.src = '/js/glass.js';
+    glass.onload = () => window.Glass && window.Glass.init();
+    document.body.append(glass);
 
     document.title = document.title ? `${document.title} · ${c.storeName}` : c.storeName;
     writeBag(readBag());
