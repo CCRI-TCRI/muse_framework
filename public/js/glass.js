@@ -91,7 +91,94 @@
     [1, 0.9, 0.8].forEach((k, i) => maps[i].setAttribute('scale', String(strength * k)));
   }
 
+  /* ----- glass on any element ----- */
+  let svgRoot = null;
+  function svg() {
+    if (!svgRoot) {
+      svgRoot = document.createElementNS(SVGNS, 'svg');
+      svgRoot.setAttribute('width', '0'); svgRoot.setAttribute('height', '0');
+      svgRoot.setAttribute('aria-hidden', 'true');
+      svgRoot.style.position = 'absolute';
+      document.body.append(svgRoot);
+    }
+    return svgRoot;
+  }
+
+  // Which floating parts of the shop bend the light behind them, and how much.
+  // [selector, depth of the curved rim in px, bending strength, magnification, extra css]
+  const SURFACES = [
+    ['.site-header .bar', 16, 34, 1, 'blur(2px) saturate(1.8) brightness(1.05)'],
+    ['.card .heart', 10, 22, 1.08, 'blur(1px) saturate(1.6) brightness(1.1)'],
+    ['.card .shop-pill', 10, 20, 1, 'blur(2px) saturate(1.5) brightness(.85)'],
+    ['.card .tag', 8, 14, 1, 'blur(2px) saturate(1.5)'],
+    ['.stagebox .top .icon-btn, .stagebox .top .heart, .stagebox .top .title', 12, 24, 1.08, 'blur(2px) saturate(1.6) brightness(1.08)'],
+    ['.sheet', 20, 30, 1, 'blur(10px) saturate(1.8) brightness(1.06)'],
+    ['.buybar', 16, 30, 1, 'blur(6px) saturate(1.8) brightness(1.06)'],
+    ['.place-bar', 16, 30, 1, 'blur(6px) saturate(1.8) brightness(1.06)'],
+    ['.drawer', 22, 36, 1, 'blur(14px) saturate(1.8) brightness(1.06)'],
+    ['.lt-back, .stage .badge span, .sound', 10, 20, 1.06, 'blur(3px) saturate(1.6)'],
+    ['.live-page .chat .log > div', 12, 20, 1, 'blur(4px) saturate(1.6)'],
+    ['.live-page .chat input, .live-page .chat .btn', 12, 22, 1, 'blur(6px) saturate(1.7)'],
+    ['.pinned', 16, 28, 1, 'blur(10px) saturate(1.8) brightness(1.06)'],
+  ];
+  const shared = new Map(); // one filter per surface type and size
+  let applying = false;
+
+  function surfaceFilter(group, w, h, depth, strength, magnify) {
+    const key = `${group}-${w}x${h}`;
+    if (shared.has(key)) return shared.get(key);
+    if (shared.size > 60) return null; // plenty; anything else just stays frosted
+    const id = `lg-${shared.size}`;
+    const f = makeFilter(id);
+    svg().append(f);
+    const img = f.querySelector('feImage');
+    img.setAttribute('width', w); img.setAttribute('height', h);
+    img.setAttribute('href', displacementMap(w, h, Math.min(w, h) / 2, depth, magnify, strength));
+    const maps = f.querySelectorAll('feDisplacementMap');
+    [1, 0.9, 0.8].forEach((k, i) => maps[i].setAttribute('scale', String(strength * k)));
+    shared.set(key, id);
+    return id;
+  }
+
+  function roundness(el) {
+    const r = parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0;
+    return r;
+  }
+
+  function applySurfaces() {
+    if (!canRefract || applying) return;
+    applying = true;
+    SURFACES.forEach(([sel, depth, strength, magnify, rest], group) => {
+      document.querySelectorAll(sel).forEach((el) => {
+        const w = el.offsetWidth, h = el.offsetHeight;
+        if (!w || !h) return;
+        const key = `${group}-${w}x${h}`;
+        if (el.dataset.glass === key) return;
+        const id = surfaceFilter(`${group}r${Math.round(roundness(el))}`, w, h, depth, strength, magnify);
+        if (!id) return;
+        el.dataset.glass = key;
+        el.style.backdropFilter = `url(#${id}) ${rest}`;
+      });
+    });
+    applying = false;
+  }
+
+  let pending = null;
+  function schedule() {
+    clearTimeout(pending);
+    pending = setTimeout(applySurfaces, 120);
+  }
+
+  function watch() {
+    if (!canRefract) return;
+    document.documentElement.classList.add('refract');
+    applySurfaces();
+    new MutationObserver(schedule).observe(document.body, { childList: true, subtree: true });
+    addEventListener('resize', schedule);
+  }
+
   function init() {
+    watch();
     const bar = document.getElementById('tabbar');
     if (!bar || bar.dataset.ready) return;
     bar.dataset.ready = '1';
@@ -104,14 +191,8 @@
     track.innerHTML = tabs.map((t) => `<span class="lens-item">${t.innerHTML}</span>`).join('');
 
     if (canRefract) {
-      document.documentElement.classList.add('refract');
-      const svg = document.createElementNS(SVGNS, 'svg');
-      svg.setAttribute('width', '0'); svg.setAttribute('height', '0');
-      svg.setAttribute('aria-hidden', 'true');
-      svg.style.position = 'absolute';
       const fBar = makeFilter('lg-bar'), fLens = makeFilter('lg-lens');
-      svg.append(fBar, fLens);
-      document.body.append(svg);
+      svg().append(fBar, fLens);
       const refresh = () => { updateFilter(fBar, bar, 22, 46); updateFilter(fLens, lens, 11, 16, 1.16); };
       refresh();
       new ResizeObserver(refresh).observe(bar);
@@ -190,5 +271,5 @@
     tabs.forEach((t) => t.addEventListener('click', (e) => { if (e.detail !== 0) e.preventDefault(); }));
   }
 
-  window.Glass = { init };
+  window.Glass = { init, refresh: schedule };
 })();

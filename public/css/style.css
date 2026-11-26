@@ -790,3 +790,104 @@ html.show-splash .splash { display: grid; }
 @media (max-width: 860px) {
   .bottom-nav.glass a .live-dot { position: absolute; top: 11px; left: calc(50% + 8px); right: auto; margin: 0; width: 8px; height: 8px; box-shadow: 0 0 0 2px rgba(255,255,255,.9); }
 }
+
+/* =====================================================================
+   Liquid glass across the shop (the admin keeps its plain look).
+   Translucent surfaces, a bright rim, a soft inner highlight. In Chrome the
+   floating parts also bend what's behind them (see glass.js).
+   ===================================================================== */
+body:not(.admin-body) {
+  --g-light: rgba(255, 255, 255, .42);
+  --g-light-strong: rgba(255, 255, 255, .7);
+  --g-rim: rgba(255, 255, 255, .85);
+  --g-dark: rgba(18, 18, 20, .62);
+  --g-dark-strong: rgba(18, 18, 20, .86);
+  --g-dark-rim: rgba(255, 255, 255, .22);
+  --g-hi: inset 0 1.5px 1px rgba(255, 255, 255, .95), inset 0 -1px 1px rgba(255, 255, 255, .35), inset 0 0 0 .5px rgba(0, 0, 0, .05);
+  --g-hi-dark: inset 0 1px 1px rgba(255, 255, 255, .38), inset 0 -1px 1px rgba(255, 255, 255, .08);
+  --g-drop: 0 8px 24px rgba(0, 0, 0, .1), 0 1px 3px rgba(0, 0, 0, .06);
+  --g-blur: blur(16px) saturate(1.8);
+}
+.gl, .site-header .bar, .card .heart, .stagebox .top .icon-btn, .stagebox .top .heart, .stagebox .top .title, .card .tag:not(.sale),
+.drawer, .pinned, .sheet {
+  background: var(--g-light);
+  border: 1px solid var(--g-rim);
+  box-shadow: var(--g-hi), var(--g-drop);
+  -webkit-backdrop-filter: var(--g-blur);
+  backdrop-filter: var(--g-blur);
+}
+
+/* header: a floating glass bar the page scrolls under */
+body:not(.admin-body) .site-header { background: none; backdrop-filter: none; -webkit-backdrop-filter: none; border: 0; }
+.site-header .bar { margin-top: 8px; border-radius: 28px; height: 70px; }
+@media (min-width: 861px) { .site-header .bar { max-width: calc(1320px - 2 * var(--gutter)); padding: 0 12px 0 14px; } }
+@media (max-width: 860px) { .site-header { top: 6px; margin: 0 10px; } .site-header .bar { height: 66px; padding: 0 9px 0 9px; border-radius: 33px; } .brand .mark { width: 46px; height: 46px; } }
+/* things inside a glass bar are glass too, but they don't need their own blur */
+.icon-group, .site-header .icon-btn { background: var(--g-light-strong); border: 1px solid var(--g-rim); box-shadow: var(--g-hi); }
+.site-header .search input { background: var(--g-light-strong); border: 1px solid var(--g-rim); box-shadow: var(--g-hi); }
+
+/* search row, chips and small buttons on the page */
+.search-row .search input, .search-row .icon-btn, .chip, .stepper button, .size, .acc details, .qty button:first-child, .close {
+  background: var(--g-light-strong); border: 1px solid var(--g-rim); box-shadow: var(--g-hi), 0 2px 8px rgba(0, 0, 0, .06);
+}
+.chip.on, .size.on, .stepper button + span + button, .qty button:last-child {
+  background: var(--g-dark-strong); border: 1px solid var(--g-dark-rim); box-shadow: var(--g-hi-dark), 0 4px 12px rgba(0, 0, 0, .18); color: #fff;
+}
+
+/* buttons: dark glass, light glass */
+body:not(.admin-body) .btn { background: var(--g-dark-strong); border: 1px solid var(--g-dark-rim); box-shadow: var(--g-hi-dark), 0 6px 16px rgba(0, 0, 0, .16); color: #fff; }
+body:not(.admin-body) .btn.ghost, body:not(.admin-body) .btn.light, body:not(.admin-body) .btn.call, .promo-copy .btn, .buybar .btn.round {
+  background: var(--g-light-strong); border: 1px solid var(--g-rim); box-shadow: var(--g-hi), 0 4px 12px rgba(0, 0, 0, .08); color: var(--ink);
+}
+body:not(.admin-body) .btn.wa { background: rgba(37, 211, 102, .9); border: 1px solid rgba(255, 255, 255, .35); box-shadow: var(--g-hi-dark), 0 6px 16px rgba(37, 211, 102, .25); }
+
+/* product cards: glass buttons floating on the photos */
+.card .heart { background: rgba(255, 255, 255, .5); }
+.card .shop-pill { background: var(--g-dark); border: 1px solid var(--g-dark-rim); box-shadow: var(--g-hi-dark), 0 4px 12px rgba(0, 0, 0, .2); -webkit-backdrop-filter: blur(12px) saturate(1.6); backdrop-filter: blur(12px) saturate(1.6); }
+.card .tag.sale { background: var(--g-dark); border: 1px solid var(--g-dark-rim); box-shadow: var(--g-hi-dark); -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); }
+.card .frame { box-shadow: 0 1px 0 rgba(255, 255, 255, .8) inset; }
+
+/* panels: frosted glass cards */
+.bag-page > section, .summary, .checkout .card-box, .contact, .receipt, .film, .site-footer > .wrap > .foot-card, .how, .done-hero, .contact-row, .cat-tile .label, .promo-tag {
+  background: rgba(255, 255, 255, .62); border: 1px solid var(--g-rim); box-shadow: var(--g-hi), var(--g-drop);
+}
+.promo { box-shadow: var(--g-hi), var(--g-drop); border: 1px solid var(--g-rim); }
+.promo-tag { padding: 6px 12px; border-radius: 99px; }
+@media (max-width: 860px) { .promo-tag { padding: 4px 9px; } }
+.how, .done-hero { background: rgba(227, 236, 248, .75); }
+
+/* details page */
+.stagebox .top .title { padding: 9px 18px; border-radius: 99px; }
+.sheet { background: rgba(255, 255, 255, .78); }
+.thumbs button { background: var(--g-light-strong); border: 1px solid var(--g-rim); box-shadow: var(--g-hi); }
+.thumbs button.on { border: 2px solid rgba(18, 18, 20, .75); }
+@media (max-width: 860px) {
+  .buybar { background: rgba(255, 255, 255, .55); border-top: 1px solid var(--g-rim); box-shadow: var(--g-hi), 0 -8px 24px rgba(0, 0, 0, .08); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); }
+  .place-bar { background: rgba(255, 255, 255, .55); border-top: 1px solid var(--g-rim); box-shadow: var(--g-hi), 0 -8px 24px rgba(0, 0, 0, .08); -webkit-backdrop-filter: var(--g-blur); backdrop-filter: var(--g-blur); }
+}
+
+/* bag sheet */
+.drawer { background: rgba(255, 255, 255, .74); -webkit-backdrop-filter: blur(24px) saturate(1.8); backdrop-filter: blur(24px) saturate(1.8); }
+.drawer-foot { border-top-color: rgba(0, 0, 0, .06); }
+.scrim { background: rgba(17, 17, 17, .22); }
+
+/* welcome screen */
+.slide { background: var(--g-dark-strong); border: 1px solid var(--g-dark-rim); box-shadow: var(--g-hi-dark), 0 10px 26px rgba(0, 0, 0, .2); }
+.slide .knob { background: rgba(255, 255, 255, .92); box-shadow: var(--g-hi), 0 2px 8px rgba(0, 0, 0, .25); }
+
+/* live: dark glass over the video */
+.lt-back, .stage .badge span, .live-page .chat .log > div { background: rgba(20, 20, 22, .4); border: 1px solid var(--g-dark-rim); box-shadow: var(--g-hi-dark); -webkit-backdrop-filter: blur(10px) saturate(1.6); backdrop-filter: blur(10px) saturate(1.6); }
+.stage .badge .on-air { background: rgba(224, 54, 44, .82); }
+.sound { background: rgba(255, 255, 255, .72) !important; border: 1px solid var(--g-rim) !important; box-shadow: var(--g-hi) !important; -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px); }
+@media (max-width: 860px) {
+  .live-page .chat input { background: rgba(20, 20, 22, .35); border: 1px solid var(--g-dark-rim); box-shadow: var(--g-hi-dark); }
+  .live-page .chat .btn { background: rgba(255, 255, 255, .78); color: var(--ink); border: 1px solid var(--g-rim); box-shadow: var(--g-hi); }
+}
+.pinned { background: rgba(255, 255, 255, .72); }
+.pinned select { background-color: var(--g-light-strong); border: 1px solid var(--g-rim); }
+/* keep text readable on glass over busy photos and video */
+.site-header .bar { background: rgba(255, 255, 255, .64); }
+.brand .hello span { color: var(--ink-2); }
+.pinned { background: rgba(255, 255, 255, .86); }
+@media (max-width: 860px) { .bottom-nav.glass { background: rgba(255, 255, 255, .36); } }
+@media (min-width: 861px) { .site-header .bar { background: rgba(255, 255, 255, .8); } }
