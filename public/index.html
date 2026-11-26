@@ -7,8 +7,23 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link rel="stylesheet" href="/css/style.css">
+  <script>
+    // First visit on this phone: start on the welcome screen.
+    try { if (!localStorage.getItem('store-welcomed') || location.hash === '#welcome') document.documentElement.classList.add('show-splash'); } catch {}
+  </script>
 </head>
 <body>
+  <section class="splash" id="splash" aria-label="Welcome">
+    <div class="splash-photo" id="splash-photo"></div>
+    <div class="splash-copy">
+      <h1 id="splash-title"></h1>
+      <div class="slide" id="slide" role="button" tabindex="0" aria-label="Get started">
+        <span class="knob" id="knob"></span>
+        <span>Get Started</span>
+        <span class="chev">&rsaquo;&rsaquo;&rsaquo;</span>
+      </div>
+    </div>
+  </section>
   <main class="wrap">
     <div id="search-slot"></div>
     <section class="promo" id="promo"></section>
@@ -42,12 +57,61 @@
 
   <script src="/js/common.js"></script>
   <script>
+    // The welcome screen: a big photo, the headline, and a "Get Started" bar
+    // you can swipe or tap.
+    function welcome(s, products) {
+      const splash = document.getElementById('splash');
+      if (!document.documentElement.classList.contains('show-splash')) { splash.remove(); return; }
+      document.body.style.overflow = 'hidden';
+      const withPhoto = products.find((p) => p.images.length);
+      const photo = s.splash_media || (s.hero_media_type === 'image' && s.hero_media) || (withPhoto && withPhoto.images[0]);
+      document.getElementById('splash-photo').innerHTML = photo
+        ? `<img src="${Store.esc(photo)}" alt="">`
+        : (products[0] ? Store.art(products[0]) : '');
+      document.getElementById('splash-title').innerHTML = Store.headline(s.splash_title || 'Your Everyday *Shopping* _Companion!_');
+      document.getElementById('knob').innerHTML = Store.icon('box');
+
+      const slide = document.getElementById('slide');
+      const knob = document.getElementById('knob');
+      const max = () => slide.clientWidth - knob.offsetWidth - 14;
+      let startX = null, moved = 0, done = false;
+
+      function finish() {
+        if (done) return;
+        done = true;
+        knob.style.transform = `translateX(${max()}px)`;
+        try { localStorage.setItem('store-welcomed', '1'); } catch {}
+        if (location.hash === '#welcome') history.replaceState(null, '', '/');
+        setTimeout(() => {
+          splash.classList.add('leaving');
+          document.body.style.overflow = '';
+          setTimeout(() => splash.remove(), 450);
+        }, 220);
+      }
+      slide.addEventListener('pointerdown', (e) => { startX = e.clientX; moved = 0; slide.classList.add('dragging'); slide.setPointerCapture(e.pointerId); });
+      slide.addEventListener('pointermove', (e) => {
+        if (startX === null) return;
+        moved = Math.max(0, Math.min(max(), e.clientX - startX));
+        knob.style.transform = `translateX(${moved}px)`;
+      });
+      slide.addEventListener('pointerup', () => {
+        slide.classList.remove('dragging');
+        startX = null;
+        // A tap, or a swipe past halfway, gets you in. A short drag springs back.
+        if (moved < 8 || moved > max() * 0.5) finish();
+        else knob.style.transform = '';
+      });
+      slide.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); finish(); } });
+    }
+  </script>
+  <script>
     (async () => {
       const { esc, art, card, money, headline } = Store;
       const cfg = await Store.chrome('home');
       const s = cfg.settings;
       const products = await Store.products();
       document.getElementById('search-slot').innerHTML = Store.searchRow();
+      welcome(s, products);
 
       // Promo banner: the uploaded picture or film, otherwise a few pieces from the shop.
       const media = s.hero_media

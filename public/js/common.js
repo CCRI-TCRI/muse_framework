@@ -121,6 +121,9 @@ const Store = (() => {
     back: '<path d="M14.5 5.5 8 12l6.5 6.5"/>',
     sliders: '<path d="M4 7h10M18 7h2M4 17h4M12 17h8"/><circle cx="16" cy="7" r="2"/><circle cx="10" cy="17" r="2"/>',
     arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
+    bell: '<path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20.5a2 2 0 0 0 4 0"/>',
+    user: '<circle cx="12" cy="8" r="4"/><path d="M4.5 20.5a7.5 7.5 0 0 1 15 0"/>',
+    box: '<path d="M12 3 20 7.5v9L12 21l-8-4.5v-9z"/><path d="M4 7.5 12 12l8-4.5M12 12v9"/>',
   };
   const icon = (name) => `<svg class="i" viewBox="0 0 24 24" aria-hidden="true">${ICONS[name]}</svg>`;
 
@@ -217,6 +220,16 @@ const Store = (() => {
     location.href = '/checkout';
   }
 
+  /* ----- orders placed on this phone ----- */
+  function myOrders() {
+    try { return JSON.parse(localStorage.getItem('store-orders')) || []; } catch { return []; }
+  }
+  function rememberOrder(id, token) {
+    const list = myOrders().filter((o) => o.id !== id);
+    list.unshift({ id, token });
+    try { localStorage.setItem('store-orders', JSON.stringify(list.slice(0, 30))); } catch {}
+  }
+
   /* ----- drawers ----- */
   function openDrawer(id) {
     document.getElementById(id)?.classList.add('open');
@@ -254,6 +267,9 @@ const Store = (() => {
     const initial = esc((c.storeName.trim()[0] || 'M').toUpperCase());
     const q = new URLSearchParams(location.search).get('q') || '';
     const on = (k) => (active === k ? 'on' : '');
+    let customer = '';
+    try { customer = (JSON.parse(localStorage.getItem('store-details') || '{}').name || '').trim().split(/\s+/)[0]; } catch {}
+    const avatar = esc((customer || c.storeName.trim())[0] || 'M').toUpperCase();
 
     const top = document.createElement('div');
     top.innerHTML = `
@@ -261,9 +277,9 @@ const Store = (() => {
       <header class="site-header">
         <div class="bar">
           <a class="brand" href="/">
-            <span class="mark">${initial}</span>
+            <span class="mark">${avatar}</span>
             <span class="name">${name}</span>
-            <span class="hello"><b>Hello there</b><span>Welcome to ${name}</span></span>
+            <span class="hello"><b>${customer ? `Hello, ${esc(customer)}` : 'Hello there'}</b><span>Welcome to ${name}</span></span>
           </a>
           <nav class="nav">
             <a href="/" class="${on('home')}">Home</a>
@@ -273,8 +289,10 @@ const Store = (() => {
           </nav>
           <form class="search" action="/shop" role="search">${icon('search')}<input name="q" placeholder="Search" value="${esc(q)}" aria-label="Search the shop"></form>
           <div class="actions">
-            <a class="icon-btn" href="/shop?saved=1" aria-label="Saved pieces">${icon('heart')}<span class="count" data-saved-count></span></a>
-            <button class="icon-btn" data-open="bag" aria-label="Bag">${icon('bag')}<span class="count" data-bag-count></span></button>
+            <div class="icon-group">
+              <a href="/live" aria-label="Live sessions" data-live-bell>${icon('bell')}</a>
+              <button data-open="bag" aria-label="Bag">${icon('bag')}<span class="count" data-bag-count></span></button>
+            </div>
           </div>
         </div>
       </header>`;
@@ -298,9 +316,9 @@ const Store = (() => {
       </aside>
       <nav class="bottom-nav" aria-label="Main">
         <a href="/" class="${on('home')}">${icon('home')}<span>Home</span></a>
-        <a href="/shop" class="${on('shop')}">${icon('search')}<span>Shop</span></a>
-        <a href="/shop?saved=1" class="${on('saved')}">${icon('heart')}<span>Saved</span></a>
-        <a href="/live" class="${on('live')}" data-live-link>${icon('live')}<span>Live</span></a>
+        <a href="/shop" class="${on('shop')}" aria-label="Search">${icon('search')}<span>Search</span></a>
+        <a href="/shop?saved=1" class="${on('saved')}" aria-label="Saved">${icon('heart')}<span>Saved</span></a>
+        <a href="/orders" class="${on('orders')}" aria-label="My orders">${icon('user')}<span>Orders</span></a>
       </nav>`;
     document.body.append(...extra.children);
 
@@ -318,6 +336,7 @@ const Store = (() => {
             <li><a href="/videos">Films</a></li>
             <li><a href="/live">Live try-ons</a></li>
             <li><a href="/shop?saved=1">Saved pieces</a></li>
+            <li><a href="/orders">My orders</a></li>
             ${s.instagram ? `<li><a href="${esc(s.instagram)}" target="_blank" rel="noopener">Instagram</a></li>` : ''}
           </ul></div>
           <div><h4>Delivery &amp; returns</h4><p>${esc(s.shipping_info)}</p></div>
@@ -343,7 +362,7 @@ const Store = (() => {
     livePromise = api('/live/status').catch(() => ({ live: false }));
     livePromise.then((st) => {
       if (!st.live) return;
-      document.querySelectorAll('[data-live-link]').forEach((a) => a.insertAdjacentHTML('beforeend', '<span class="live-dot"></span>'));
+      document.querySelectorAll('[data-live-link], [data-live-bell]').forEach((a) => a.insertAdjacentHTML('beforeend', '<span class="live-dot"></span>'));
     });
 
     return c;
@@ -353,6 +372,7 @@ const Store = (() => {
   function searchRow(value = '') {
     return `<div class="search-row">
       <form class="search" action="/shop" role="search">${icon('search')}<input name="q" placeholder="Search" value="${esc(value)}" aria-label="Search the shop"></form>
+      <span class="divider"></span>
       <a class="icon-btn" href="/shop" aria-label="Browse and sort">${icon('sliders')}</a>
     </div>`;
   }
@@ -369,5 +389,5 @@ const Store = (() => {
 
   const live = () => livePromise;
 
-  return { tint, intl, shopNumbers, waLink, telLink, live, icon, headline, priceHtml, heartButton, searchRow, readSaved, toggleSaved, api, config, products, money, esc, art, card, isDark, readBag, writeBag, addToBag, bagCount, bagLines, bagClicks, subtotal, checkout, openDrawer, chrome, reveal };
+  return { myOrders, rememberOrder, tint, intl, shopNumbers, waLink, telLink, live, icon, headline, priceHtml, heartButton, searchRow, readSaved, toggleSaved, api, config, products, money, esc, art, card, isDark, readBag, writeBag, addToBag, bagCount, bagLines, bagClicks, subtotal, checkout, openDrawer, chrome, reveal };
 })();

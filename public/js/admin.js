@@ -431,6 +431,14 @@ const Admin = (() => {
 
   /* ----- settings ----- */
   let hero = { url: '', type: '' };
+  let splash = '';
+
+  function drawSplash() {
+    $('splash-preview').innerHTML = splash
+      ? `<img src="${esc(splash)}" alt="" style="width:100%;border-radius:14px"><button type="button" class="link" id="splash-remove" style="margin-top:8px">Remove</button>`
+      : '';
+    $('splash-remove')?.addEventListener('click', () => { splash = ''; drawSplash(); });
+  }
   const sform = $('settings-form');
   let settingsLoading = null;
 
@@ -448,6 +456,8 @@ const Admin = (() => {
       for (const el of sform.elements) if (el.name && el.name in s) el.value = s[el.name];
       hero = { url: s.hero_media, type: s.hero_media_type };
       drawHero();
+      splash = s.splash_media || '';
+      drawSplash();
     })();
     return settingsLoading;
   }
@@ -468,11 +478,27 @@ const Admin = (() => {
     }
   });
 
+  $('splash-input').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    e.target.value = '';
+    if (!file) return;
+    try {
+      await settingsLoading;
+      splash = await uploadFile(file, 'products', $('splash-progress'));
+      drawSplash();
+    } catch (err) {
+      const msg = $('settings-msg');
+      msg.className = 'note err';
+      msg.textContent = err.message;
+    }
+  });
+
   sform.addEventListener('submit', async (e) => {
     e.preventDefault();
     const body = Object.fromEntries([...sform.elements].filter((el) => el.name).map((el) => [el.name, el.value]));
     body.hero_media = hero.url;
     body.hero_media_type = hero.type;
+    body.splash_media = splash;
     const msg = $('settings-msg');
     try {
       const saved = await api('/admin/settings', { method: 'PUT', body });

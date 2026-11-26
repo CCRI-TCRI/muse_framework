@@ -147,6 +147,8 @@ const STARTERS = [
 const DEFAULT_SETTINGS = {
   announcement: 'Free delivery in Kampala on orders over UGX 300,000',
   whatsapp_numbers: '0744 315492, 0795567578',
+  splash_title: 'Your Everyday *Shopping* _Companion!_',
+  splash_media: '',
   hero_kicker: 'New season just landed',
   hero_title: 'Your everyday *wardrobe* _edit_',
   hero_text: 'Natural fibres, small runs and cuts that last for years. Every new piece is tried on live before it goes on sale.',

@@ -181,6 +181,18 @@
             <label class="field"><span>Banner along the top of the shop (leave empty to hide)</span><input name="announcement" maxlength="200"></label>
           </div>
           <div class="box">
+            <div class="box-head"><h2>Welcome screen</h2></div>
+            <p class="small muted" style="margin:-6px 0 0">The first thing new visitors see, with a "Get Started" button. Add #welcome to your shop's address to see it again.</p>
+            <label class="field"><span>Headline</span><input name="splash_title" maxlength="80"></label>
+            <div class="field">
+              <span>Photo (a tall, portrait photo of someone wearing your clothes works best)</span>
+              <div id="splash-preview" style="max-width:220px"></div>
+              <label class="upload-drop"><input type="file" id="splash-input" accept="image/jpeg,image/png,image/webp,image/avif" hidden><span data-icon="image"></span>Choose a photo</label>
+              <div class="progress hidden" id="splash-progress"><div></div></div>
+              <div class="small muted">Without one, it uses your homepage picture or your newest product photo.</div>
+            </div>
+          </div>
+          <div class="box">
             <div class="box-head"><h2>Homepage</h2></div>
             <div class="field">
               <span>Picture or short film for the big banner</span>

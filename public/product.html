@@ -45,10 +45,10 @@
               </div>
               <div id="main-shot" style="position:absolute;inset:0">${art(p)}</div>
             </div>
-            ${shots > 1 ? `<div class="thumbs" style="--tint:${Store.tint(p.id)}">${p.images.map((_, i) => `<button class="${i === 0 ? 'on' : ''}" data-shot="${i}" aria-label="Photo ${i + 1}">${art(p, { index: i })}</button>`).join('')}</div>` : ''}
           </div>
 
           <div class="sheet">
+            ${shots > 1 ? `<div class="thumbs" style="--tint:${Store.tint(p.id)}">${p.images.map((_, i) => `<button class="${i === 0 ? 'on' : ''}" data-shot="${i}" aria-label="Photo ${i + 1}">${art(p, { index: i })}</button>`).join('')}</div>` : ''}
             <div class="sheet-top">
               <div><h1>${esc(p.name)}</h1><div class="sub">${esc(p.category)}</div></div>
               <div class="price">${p.compare_cents ? `<span class="was">${money(p.compare_cents)}</span>` : ''}${money(p.price_cents)}</div>

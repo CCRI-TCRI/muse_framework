@@ -103,6 +103,7 @@
         try {
           const r = await Store.api('/orders', { method: 'POST', body: { ...details, items: items.map(({ id, size, qty }) => ({ id, size, qty })) } });
           try { localStorage.setItem('store-details', JSON.stringify({ name: details.name, phone: details.phone, address: details.address })); } catch {}
+          Store.rememberOrder(r.id, r.token);
           Store.writeBag([]);
           location.href = `/success?order=${r.id}&token=${encodeURIComponent(r.token)}`;
         } catch (ex) {

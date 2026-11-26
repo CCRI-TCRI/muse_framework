@@ -33,6 +33,7 @@
       // The message that opens in WhatsApp, so the shop sees the whole order straight away.
       const lines = o.items.map((i) => `• ${i.quantity} x ${i.name}${i.size ? ` (size ${i.size})` : ''}: ${money(i.unit_price_cents * i.quantity)}`).join('\n');
       const message = `Hello ${cfg.storeName}, I've just placed order #${o.id} on your website.\n\n${lines}\n\nTotal: ${money(o.total_cents)}\n\nName: ${o.customer_name}\nPhone: ${o.phone}\nDeliver to: ${o.shipping_address}${o.notes ? `\nNotes: ${o.notes}` : ''}\n\nPlease confirm my order and how to pay.`;
+      Store.rememberOrder(o.id, q.get('token'));
       const numbers = Store.shopNumbers();
       const state = { pending: 'Waiting for you to confirm on WhatsApp', paid: 'Paid. We are getting it ready', shipped: 'On its way to you', cancelled: 'This order was cancelled' }[o.status];
 
@@ -62,7 +63,7 @@
           <div class="totals big"><span>Total</span><span>${money(o.total_cents)}</span></div>
           <div class="small muted" style="margin-top:12px">Delivering to ${esc(o.customer_name)}, ${esc(o.shipping_address)}. We'll call you on ${esc(o.phone)}.</div>
         </section>
-        <div style="text-align:center;margin-top:22px"><a class="btn ghost" href="/shop">Continue shopping</a></div>`;
+        <div style="display:flex;gap:10px;justify-content:center;margin-top:22px;flex-wrap:wrap"><a class="btn ghost" href="/orders">My orders</a><a class="btn" href="/shop">Continue shopping</a></div>`;
     })();
   </script>
 </body>

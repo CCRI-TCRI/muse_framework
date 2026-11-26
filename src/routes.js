@@ -205,9 +205,10 @@ admin.put('/settings', wrap(async (req, res) => {
   for (const key of db.SETTING_KEYS) {
     if (!(key in req.body)) continue;
     let value = String(req.body[key] ?? '').slice(0, 2000);
-    if (key === 'hero_media' && value && !storage.isOurFile(value)) continue;
+    const isMedia = key === 'hero_media' || key === 'splash_media';
+    if (isMedia && value && !storage.isOurFile(value)) continue;
     if (key === 'hero_media_type' && !['', 'image', 'video'].includes(value)) continue;
-    if (key === 'hero_media' && current.hero_media && current.hero_media !== value) storage.removeFile(current.hero_media);
+    if (isMedia && current[key] && current[key] !== value) storage.removeFile(current[key]);
     await db.query('INSERT INTO settings (key, value) VALUES ($1, $2) ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value', [key, value]);
   }
   res.json(await db.getSettings());
