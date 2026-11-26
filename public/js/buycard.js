@@ -69,7 +69,7 @@ const BuyCard = (() => {
       qty = Math.max(1, Math.min(20, qty + Number(b.dataset.q)));
       draw();
     });
-    el.querySelector('#bc-checkout').addEventListener('click', () => { if (commit()) location.href = '/checkout'; });
+    el.querySelector('#bc-checkout').addEventListener('click', () => { if (commit()) { close(); Store.go('/checkout'); } });
     el.querySelector('#bc-add').addEventListener('click', () => {
       if (!commit()) return;
       el.querySelector('#bc-done-sub').textContent = [qty > 1 ? `${qty} × ${p.name}` : p.name, Store.variant({ size, colour })].filter(Boolean).join(' · ');

@@ -69,7 +69,7 @@
       });
       document.getElementById('sort').addEventListener('change', draw);
       // Unsaving something on the saved page takes it off the list.
-      if (savedView) document.addEventListener('click', (e) => { if (e.target.closest('[data-heart]')) setTimeout(draw, 0); });
+      if (savedView) Store.listen(document, 'click', (e) => { if (e.target.closest('[data-heart]')) setTimeout(draw, 0); });
       draw();
     })();
   </script>

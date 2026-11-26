@@ -81,6 +81,7 @@
         done = true;
         knob.style.transform = `translateX(${max()}px)`;
         try { localStorage.setItem('store-welcomed', '1'); } catch {}
+        document.documentElement.classList.remove('show-splash');
         if (location.hash === '#welcome') history.replaceState(null, '', '/');
         setTimeout(() => {
           splash.classList.add('leaving');

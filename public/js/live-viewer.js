@@ -17,6 +17,10 @@
   let pinnedId = null;
   let joinedAt = 0;
   let wasLive = false;
+  let stopped = false;
+  let timer = null;
+  // Leaving the page inside the app: stop polling and drop the video.
+  Store.onLeave(() => { stopped = true; clearTimeout(timer); dropVideo(); });
 
   try { $('name').value = localStorage.getItem('store-chat-name') || ''; } catch {}
 
@@ -127,6 +131,7 @@
   }
 
   async function tick() {
+    if (stopped) return;
     let delay = 6000;
     try {
       const r = await api(`/live/poll?${new URLSearchParams({ viewer: viewerId || '', after: lastChat })}`);
@@ -151,7 +156,7 @@
     } catch (err) {
       console.warn(err.message);
     }
-    setTimeout(tick, document.hidden && !wasLive ? 15000 : delay);
+    if (!stopped) timer = setTimeout(tick, document.hidden && !wasLive ? 15000 : delay);
   }
 
   $('unmute').addEventListener('click', () => {

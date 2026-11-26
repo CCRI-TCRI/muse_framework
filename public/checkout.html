@@ -105,7 +105,7 @@
           try { localStorage.setItem('store-details', JSON.stringify({ name: details.name, phone: details.phone, address: details.address })); } catch {}
           Store.rememberOrder(r.id, r.token);
           Store.writeBag([]);
-          location.href = `/success?order=${r.id}&token=${encodeURIComponent(r.token)}`;
+          Store.go(`/success?order=${r.id}&token=${encodeURIComponent(r.token)}`);
         } catch (ex) {
           err.textContent = ex.message;
           err.classList.remove('hidden');

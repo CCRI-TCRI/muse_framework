@@ -252,7 +252,7 @@ const Store = (() => {
   const subtotal = (items) => items.reduce((s, i) => s + i.price_cents * i.qty, 0);
 
   function checkout() {
-    location.href = '/checkout';
+    go('/checkout');
   }
 
   /* ----- orders placed on this phone ----- */
@@ -295,8 +295,36 @@ const Store = (() => {
     document.querySelectorAll('[data-saved-count]').forEach((el) => { el.textContent = saved || ''; });
   }
 
+  let built = false;
+
+  // Moves the highlight in the header and the glass menu to the current page.
+  function setActive(active) {
+    document.querySelectorAll('.nav a[data-key], #tabbar a[data-key]').forEach((a) => a.classList.toggle('on', a.dataset.key === active));
+    window.Glass && window.Glass.select && window.Glass.select();
+    const q = new URLSearchParams(location.search).get('q') || '';
+    document.querySelectorAll('.search input[name=q]').forEach((i) => { i.value = q; });
+  }
+
+  // Red dots on Live while a stream is on.
+  function refreshLive() {
+    livePromise = api('/live/status').catch(() => ({ live: false }));
+    livePromise.then((st) => {
+      document.querySelectorAll('[data-live-link] .live-dot, [data-live-bell] .live-dot').forEach((d) => d.remove());
+      if (!st.live) return;
+      document.querySelectorAll('[data-live-link], [data-live-bell]').forEach((a) => a.insertAdjacentHTML('beforeend', '<span class="live-dot"></span>'));
+    });
+  }
+
   async function chrome(active = '') {
     const c = await config();
+    if (built) {
+      // Header, bag and glass menu are already on screen: keep them, just update.
+      setActive(active);
+      document.title = document.title ? `${document.title} · ${c.storeName}` : c.storeName;
+      writeBag(readBag());
+      refreshLive();
+      return c;
+    }
     const s = c.settings;
     const name = esc(c.storeName);
     const initial = esc(initials(c.storeName));
@@ -317,10 +345,10 @@ const Store = (() => {
             <span class="hello"><b>${customer ? `Hello, ${esc(customer)}` : 'Hello there'}</b><span>${name}</span></span>
           </a>
           <nav class="nav">
-            <a href="/" class="${on('home')}">Home</a>
-            <a href="/shop" class="${on('shop')}">Shop</a>
-            <a href="/videos" class="${on('videos')}">Films</a>
-            <a href="/live" class="${on('live')}" data-live-link>Live</a>
+            <a href="/" data-key="home" class="${on('home')}">Home</a>
+            <a href="/shop" data-key="shop" class="${on('shop')}">Shop</a>
+            <a href="/videos" data-key="videos" class="${on('videos')}">Films</a>
+            <a href="/live" data-key="live" class="${on('live')}" data-live-link>Live</a>
           </nav>
           <form class="search" action="/shop" role="search">${icon('search')}<input name="q" placeholder="Search" value="${esc(q)}" aria-label="Search the shop"></form>
           <div class="actions">
@@ -349,11 +377,11 @@ const Store = (() => {
         </div>
       </aside>
       <nav class="bottom-nav glass" id="tabbar" aria-label="Main">
-        <a data-tab href="/" class="${on('home')}">${icon('home')}<span>Home</span></a>
-        <a data-tab href="/shop" class="${on('shop')}">${icon('search')}<span>Search</span></a>
-        <a data-tab href="/live" class="${on('live')}" data-live-link>${icon('live')}<span>Live</span></a>
-        <a data-tab href="/shop?saved=1" class="${on('saved')}">${icon('heart')}<span>Saved</span></a>
-        <a data-tab href="/orders" class="${on('orders')}">${icon('user')}<span>Orders</span></a>
+        <a data-tab data-key="home" href="/" class="${on('home')}">${icon('home')}<span>Home</span></a>
+        <a data-tab data-key="shop" href="/shop" class="${on('shop')}">${icon('search')}<span>Search</span></a>
+        <a data-tab data-key="live" href="/live" class="${on('live')}" data-live-link>${icon('live')}<span>Live</span></a>
+        <a data-tab data-key="saved" href="/shop?saved=1" class="${on('saved')}">${icon('heart')}<span>Saved</span></a>
+        <a data-tab data-key="orders" href="/orders" class="${on('orders')}">${icon('user')}<span>Orders</span></a>
         <span class="lens" aria-hidden="true"><span class="lens-track"></span></span>
       </nav>`;
     document.body.append(...extra.children);
@@ -382,13 +410,137 @@ const Store = (() => {
     document.title = document.title ? `${document.title} · ${c.storeName}` : c.storeName;
     writeBag(readBag());
 
-    livePromise = api('/live/status').catch(() => ({ live: false }));
-    livePromise.then((st) => {
-      if (!st.live) return;
-      document.querySelectorAll('[data-live-link], [data-live-bell]').forEach((a) => a.insertAdjacentHTML('beforeend', '<span class="live-dot"></span>'));
+    refreshLive();
+    built = true;
+    startRouter();
+    return c;
+  }
+
+  /* ----- app-style page changes -----
+     Tapping a link inside the shop fetches the next page and swaps only the
+     content. The header, bag and glass menu stay exactly where they are. The
+     address bar still updates, and back/forward work as normal. */
+  const APP_PAGE = /^\/(index|shop|product|cart|checkout|success|orders|videos|live)?(\.html)?$/;
+  const KEEP = '.announce, .site-header, .scrim, #bag, #tabbar, .lens, .bc-scrim, .buycard, .toast, svg[aria-hidden="true"]';
+  const LIBRARIES = ['/js/common.js', '/js/buycard.js', '/js/whatsapp-icon.js', '/js/glass.js'];
+  const pages = new Map();
+  let leaving = [];
+  let navId = 0;
+
+  // Things a page sets up that must stop when you leave it (polling, listeners).
+  function onLeave(fn) { leaving.push(fn); }
+  function listen(target, type, fn, opts) {
+    target.addEventListener(type, fn, opts);
+    onLeave(() => target.removeEventListener(type, fn, opts));
+  }
+
+  function appUrl(href) {
+    try {
+      const u = new URL(href, location.href);
+      return u.origin === location.origin && APP_PAGE.test(u.pathname) ? u : null;
+    } catch { return null; }
+  }
+
+  function fetchPage(u) {
+    const key = u.pathname.replace(/\.html$/, '') || '/';
+    if (!pages.has(key)) {
+      pages.set(key, fetch(key, { credentials: 'same-origin' })
+        .then((r) => { if (!r.ok) throw new Error(String(r.status)); return r.text(); })
+        .catch((err) => { pages.delete(key); throw err; }));
+    }
+    return pages.get(key);
+  }
+
+  const loadedLibs = new Set();
+  function runScript(old, isLib) {
+    return new Promise((resolve) => {
+      const n = document.createElement('script');
+      if (old.src) {
+        n.src = old.src;
+        n.onload = n.onerror = resolve;
+      } else {
+        n.textContent = old.textContent;
+      }
+      if (!isLib) n.dataset.page = '1'; // page code is cleared on the next page change; shared code stays
+      document.body.append(n);
+      if (!old.src) resolve();
+    });
+  }
+
+  async function go(href, { push = true, scroll = 0 } = {}) {
+    const u = appUrl(href);
+    if (!u || !built) { location.href = href; return; }
+    const id = ++navId;
+    let html;
+    try { html = await fetchPage(u); } catch { location.href = u.href; return; }
+    if (id !== navId) return; // a later tap wins
+
+    if (push) {
+      history.replaceState({ ...(history.state || {}), scroll: scrollY }, '');
+      history.pushState({ scroll: 0, inApp: true }, '', u.pathname + u.search + u.hash);
+    }
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+
+    // Say goodbye to the old page.
+    leaving.splice(0).forEach((fn) => { try { fn(); } catch {} });
+    closeDrawers();
+    document.body.classList.remove('bc-open');
+    [...document.body.children].forEach((el) => {
+      if (el.matches(KEEP)) return;
+      if (el.tagName === 'SCRIPT' && !el.dataset.page) return; // shared code stays loaded
+      el.remove();
     });
 
-    return c;
+    // Bring in the new one, right under the header.
+    document.body.className = doc.body.className;
+    document.title = doc.title;
+    const scripts = [];
+    const frag = document.createDocumentFragment();
+    [...doc.body.children].forEach((el) => { if (el.tagName === 'SCRIPT') scripts.push(el); else frag.append(document.importNode(el, true)); });
+    document.body.classList.add('page-in');
+    document.querySelector('.site-header').after(frag);
+    scrollTo(0, scroll);
+    requestAnimationFrame(() => requestAnimationFrame(() => document.body.classList.remove('page-in')));
+
+    for (const sc of scripts) {
+      if (id !== navId) return;
+      const path = sc.src ? new URL(sc.src).pathname : '';
+      const isLib = LIBRARIES.includes(path);
+      if (isLib) {
+        const already = loadedLibs.has(path) || [...document.querySelectorAll('script[src]')].some((x) => new URL(x.src).pathname === path);
+        if (already) { loadedLibs.add(path); continue; }
+        loadedLibs.add(path);
+      }
+      await runScript(sc, isLib);
+    }
+  }
+
+  function startRouter() {
+    history.replaceState({ ...(history.state || {}), scroll: scrollY }, '');
+    document.addEventListener('click', (e) => {
+      if (e.defaultPrevented || e.button || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      const a = e.target.closest('a[href]');
+      if (!a || a.target || a.hasAttribute('download')) return;
+      // Back buttons go back if you came from inside the app.
+      if (a.hasAttribute('data-back') && history.state && history.state.inApp) { e.preventDefault(); history.back(); return; }
+      const u = appUrl(a.href);
+      if (!u) return;
+      if (u.pathname === location.pathname && u.search === location.search && u.hash) return;
+      e.preventDefault();
+      go(u.href);
+    });
+    // Search boxes
+    document.addEventListener('submit', (e) => {
+      const f = e.target;
+      if (!f.matches('form.search')) return;
+      e.preventDefault();
+      go(`/shop?${new URLSearchParams(new FormData(f))}`);
+    });
+    // Start fetching a page as soon as a finger lands on its link.
+    const warm = (e) => { const a = e.target.closest && e.target.closest('a[href]'); const u = a && appUrl(a.href); if (u) fetchPage(u).catch(() => {}); };
+    document.addEventListener('pointerdown', warm, { passive: true });
+    document.addEventListener('mouseover', warm, { passive: true });
+    addEventListener('popstate', (e) => go(location.href, { push: false, scroll: (e.state && e.state.scroll) || 0 }));
   }
 
   // Search box + filter button used on phones (the header search hides there).
@@ -412,5 +564,5 @@ const Store = (() => {
 
   const live = () => livePromise;
 
-  return { categories, variant, swatch, initials, myOrders, rememberOrder, tint, intl, shopNumbers, waLink, telLink, live, icon, headline, priceHtml, heartButton, searchRow, readSaved, toggleSaved, api, config, products, money, esc, art, card, isDark, readBag, writeBag, addToBag, bagCount, bagLines, bagClicks, subtotal, checkout, openDrawer, chrome, reveal };
+  return { go, onLeave, listen, categories, variant, swatch, initials, myOrders, rememberOrder, tint, intl, shopNumbers, waLink, telLink, live, icon, headline, priceHtml, heartButton, searchRow, readSaved, toggleSaved, api, config, products, money, esc, art, card, isDark, readBag, writeBag, addToBag, bagCount, bagLines, bagClicks, subtotal, checkout, openDrawer, chrome, reveal };
 })();

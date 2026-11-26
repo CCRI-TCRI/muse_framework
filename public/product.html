@@ -38,7 +38,7 @@
           <div class="viewer">
             <div class="stagebox" style="--tint:${Store.tint(p.id)}">
               <div class="top">
-                <a class="icon-btn" href="javascript:history.length > 1 ? history.back() : location.assign('/shop')" aria-label="Back">${icon('back')}</a>
+                <a class="icon-btn" href="/shop" data-back aria-label="Back">${icon('back')}</a>
                 <span class="title">Details</span>
                 ${heartButton(p.id)}
               </div>

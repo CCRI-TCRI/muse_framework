@@ -233,6 +233,12 @@
     place(centreOf(current));
     requestAnimationFrame(() => lens.classList.remove('no-anim'));
     const realign = () => { if (!drag) place(centreOf(current)); };
+    // Called after an in-app page change: glide the lens to the new tab.
+    select = () => {
+      const i = tabs.findIndex((t) => t.classList.contains('on'));
+      lens.classList.toggle('idle', i < 0);
+      if (i >= 0) { current = i; place(centreOf(i)); }
+    };
     addEventListener('resize', realign);
     if (window.visualViewport) visualViewport.addEventListener('resize', realign);
 
@@ -267,7 +273,10 @@
       if (i !== current) {
         current = i;
         tabs.forEach((t, k) => t.classList.toggle('on', k === i));
-        setTimeout(() => { location.href = tabs[i].href; }, 260);
+        // In the app the page swaps underneath while the lens is still gliding.
+        // (Store is declared with const in common.js, so it isn't on window.)
+        if (typeof Store !== 'undefined' && Store.go) Store.go(tabs[i].href);
+        else setTimeout(() => { location.href = tabs[i].href; }, 260);
       }
     };
     bar.addEventListener('pointerup', release);
@@ -276,5 +285,6 @@
     tabs.forEach((t) => t.addEventListener('click', (e) => { if (e.detail !== 0) e.preventDefault(); }));
   }
 
-  window.Glass = { init, refresh: schedule };
+  let select = () => {};
+  window.Glass = { init, refresh: schedule, select: () => select() };
 })();

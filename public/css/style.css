@@ -1021,3 +1021,7 @@ body.bc-open .buycard { transform: translateY(var(--drag)); }
 @media (max-width: 860px) {
   .lens { top: auto !important; bottom: calc(max(14px, env(safe-area-inset-bottom)) + 5px); }
 }
+
+/* in-app page changes: the new page fades up under the header and menu, which stay put */
+body:not(.admin-body) > main, body:not(.admin-body) > .about-band { transition: opacity .22s ease; }
+body.page-in > main, body.page-in > .about-band { opacity: 0; transition: none; }
