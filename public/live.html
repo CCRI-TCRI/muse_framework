@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <div class="live-layout">
+      <section>
+        <div class="stage" id="stage">
+          <video id="video" autoplay playsinline muted class="hidden"></video>
+          <span class="badge hidden" id="badge">LIVE</span>
+          <span class="count hidden" id="count"></span>
+          <div class="idle" id="idle">
+            <h2>We're not live right now</h2>
+            <p>Leave this page open and the stream will start here on its own. In the meantime, have a look at <a href="/videos.html" style="color:#fff">past videos</a>.</p>
+          </div>
+          <button class="btn sm hidden" id="unmute" style="position:absolute;top:48px;right:12px;z-index:4">Tap for sound</button>
+          <div class="pinned hidden" id="pinned"></div>
+        </div>
+        <h1 id="title" style="font-size:1.6rem;margin-top:16px"></h1>
+      </section>
+      <aside class="chat">
+        <div class="log" id="log"><div class="muted small">Chat opens when the stream starts.</div></div>
+        <form id="chat-form">
+          <input id="name" placeholder="Name" maxlength="30" style="max-width:90px">
+          <input id="text" placeholder="Say something" maxlength="300" autocomplete="off">
+          <button class="btn sm">Send</button>
+        </form>
+      </aside>
+    </div>
+  </main>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/live-viewer.js"></script>
+</body>
+</html>

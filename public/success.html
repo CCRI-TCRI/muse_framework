@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Order confirmed</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <main class="wrap" style="max-width:640px;padding-top:48px;padding-bottom:64px">
+    <div id="out"><p class="muted">Checking your payment...</p></div>
+  </main>
+
+  <script src="/js/common.js"></script>
+  <script>
+    (async () => {
+      await Store.chrome('bag');
+      const q = new URLSearchParams(location.search);
+      const out = document.getElementById('out');
+      try {
+        const o = await Store.api('/orders/confirm?' + new URLSearchParams({
+          session_id: q.get('session_id') || '', order: q.get('order') || '', token: q.get('token') || '',
+        }));
+        if (o.status === 'paid' || o.status === 'shipped') {
+          Store.writeBag([]);
+          out.innerHTML = `
+            <h1>Thank you!</h1>
+            <p>Order <strong>#${o.id}</strong> is confirmed${o.email ? ` and a receipt is on its way to ${Store.esc(o.email)}` : ''}. We'll pack it up soon.</p>
+            ${o.demo ? '<p class="msg ok">This was a test order, no card was charged.</p>' : ''}
+            <div class="panel" style="margin-top:24px">
+              ${o.items.map((i) => `<div style="display:flex;justify-content:space-between;gap:12px;padding:6px 0">
+                <span>${i.quantity} × ${Store.esc(i.name)}${i.size ? ` (${Store.esc(i.size)})` : ''}</span>
+                <span>${Store.money(i.unit_price_cents * i.quantity)}</span></div>`).join('')}
+              <div style="display:flex;justify-content:space-between;border-top:1px solid var(--line);margin-top:8px;padding-top:10px;font-weight:600">
+                <span>Total</span><span>${Store.money(o.total_cents)}</span></div>
+            </div>
+            <a class="btn" href="/">Keep shopping</a>`;
+        } else if (o.status === 'unpaid') {
+          out.innerHTML = `<h1>Payment still processing</h1><p>Your bank hasn't confirmed the payment yet. Refresh this page in a minute. If it doesn't go through you won't be charged.</p>`;
+        } else {
+          out.innerHTML = `<h1>We couldn't find that order</h1><p><a href="/">Back to the shop</a></p>`;
+        }
+      } catch (err) {
+        out.innerHTML = `<h1>Hmm, something went wrong</h1><p>${Store.esc(err.message)}</p><p>If you were charged, your order is safe. Just refresh this page.</p>`;
+      }
+    })();
+  </script>
+</body>
+</html>

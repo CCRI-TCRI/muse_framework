@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Videos</title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <h1>Videos</h1>
+      <p>Try-ons, close ups of the fabric and replays from past live streams.</p>
+    </section>
+    <div class="video-grid" id="list"></div>
+  </main>
+
+  <script src="/js/common.js"></script>
+  <script>
+    (async () => {
+      await Store.chrome('videos');
+      const videos = await Store.api('/videos');
+      const list = document.getElementById('list');
+      list.innerHTML = videos.length ? videos.map((v) => `
+        <div class="video-card">
+          <video src="${Store.esc(v.file)}" controls playsinline preload="metadata"></video>
+          <h3>${Store.esc(v.title)}</h3>
+          ${v.description ? `<div class="small muted">${Store.esc(v.description)}</div>` : ''}
+          ${v.product_name ? `<div class="small" style="margin-top:4px"><a href="/product.html?id=${v.product_id}">Shop the ${Store.esc(v.product_name)}, ${Store.money(v.product_price)}</a></div>` : ''}
+        </div>`).join('')
+        : '<p class="empty">No videos yet. Check back soon.</p>';
+
+      // Only one video plays at a time.
+      list.addEventListener('play', (e) => {
+        list.querySelectorAll('video').forEach((v) => { if (v !== e.target) v.pause(); });
+      }, true);
+    })();
+  </script>
+</body>
+</html>

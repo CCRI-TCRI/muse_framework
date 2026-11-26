@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <div id="product"></div>
+    <section id="videos" class="hidden">
+      <h2>See it on</h2>
+      <div class="video-grid" id="video-list"></div>
+    </section>
+  </main>
+
+  <script src="/js/common.js"></script>
+  <script>
+    (async () => {
+      await Store.chrome('shop');
+      const box = document.getElementById('product');
+      const id = new URLSearchParams(location.search).get('id');
+      let p;
+      try {
+        p = await Store.api('/products/' + encodeURIComponent(id));
+      } catch (err) {
+        box.innerHTML = `<p class="empty">${Store.esc(err.message)} <a href="/">Back to the shop</a></p>`;
+        return;
+      }
+      document.title = p.name + ' · ' + document.title;
+      let size = p.sizes.length === 1 ? p.sizes[0] : '';
+
+      box.innerHTML = `
+        <div class="product">
+          <div class="pic">${Store.picture(p)}</div>
+          <div>
+            <div class="label">${Store.esc(p.category)}</div>
+            <h1>${Store.esc(p.name)}</h1>
+            <div class="price">${Store.money(p.price_cents)}</div>
+            ${p.sizes.length ? `
+              <div class="label">Size</div>
+              <div class="sizes">${p.sizes.map((s) => `<button class="size ${s === size ? 'on' : ''}" data-size="${Store.esc(s)}">${Store.esc(s)}</button>`).join('')}</div>` : ''}
+            <button class="btn block" id="add" ${p.in_stock ? '' : 'disabled'}>${p.in_stock ? 'Add to bag' : 'Sold out'}</button>
+            <div id="note" class="small muted" style="margin-top:10px">${p.low_stock ? `Only ${p.low_stock} left.` : ''}</div>
+            <div class="desc">${Store.esc(p.description)}</div>
+          </div>
+        </div>`;
+
+      box.querySelector('.sizes')?.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-size]');
+        if (!b) return;
+        size = b.dataset.size;
+        box.querySelectorAll('.size').forEach((x) => x.classList.toggle('on', x === b));
+      });
+
+      document.getElementById('add').addEventListener('click', () => {
+        const note = document.getElementById('note');
+        if (p.sizes.length && !size) { note.textContent = 'Pick a size first.'; return; }
+        Store.addToBag(p, size);
+        note.innerHTML = 'Added. <a href="/cart.html">View your bag</a>';
+      });
+
+      if (p.videos.length) {
+        document.getElementById('videos').classList.remove('hidden');
+        document.getElementById('video-list').innerHTML = p.videos.map((v) => `
+          <div class="video-card">
+            <video src="${Store.esc(v.file)}" controls playsinline preload="metadata"></video>
+            <h3>${Store.esc(v.title)}</h3>
+          </div>`).join('');
+      }
+    })();
+  </script>
+</body>
+</html>

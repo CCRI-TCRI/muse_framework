@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title></title>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <section class="hero">
+      <h1>Clothes made to be worn <em>a lot</em>.</h1>
+      <p>Small runs, good fabric, and a live try-on whenever we drop something new. Catch the next stream to see every piece moving before you buy.</p>
+    </section>
+    <div class="filters" id="filters"></div>
+    <div class="grid" id="grid"></div>
+  </main>
+
+  <script src="/js/common.js"></script>
+  <script>
+    (async () => {
+      await Store.chrome('shop');
+      const products = await Store.api('/products');
+      const grid = document.getElementById('grid');
+      const filters = document.getElementById('filters');
+      const categories = ['All', ...new Set(products.map((p) => p.category))];
+      let current = 'All';
+
+      function draw() {
+        filters.innerHTML = categories.length > 2
+          ? categories.map((c) => `<button class="chip ${c === current ? 'on' : ''}" data-cat="${Store.esc(c)}">${Store.esc(c)}</button>`).join('')
+          : '';
+        const list = products.filter((p) => current === 'All' || p.category === current);
+        grid.innerHTML = list.length ? list.map((p) => `
+          <a class="card" href="/product.html?id=${p.id}">
+            <div class="pic">${Store.picture(p)}</div>
+            ${!p.in_stock ? '<div class="tag">Sold out</div>' : p.low_stock ? `<div class="tag">Only ${p.low_stock} left</div>` : ''}
+            <div class="name">${Store.esc(p.name)}</div>
+            <div class="price">${Store.money(p.price_cents)}</div>
+          </a>`).join('')
+          : '<p class="empty">Nothing here yet. New pieces are on the way.</p>';
+      }
+
+      filters.addEventListener('click', (e) => {
+        const btn = e.target.closest('[data-cat]');
+        if (!btn) return;
+        current = btn.dataset.cat;
+        draw();
+      });
+      draw();
+    })();
+  </script>
+</body>
+</html>
