@@ -515,3 +515,4 @@ a.frame, .card .meta { display: block; }
   .done-hero .tick svg { width: 26px; height: 26px; }
   .done-hero h1 { font-size: 26px; }
 }
+.stagebox .top .title { background: rgba(255, 255, 255, .88); padding: 9px 18px; border-radius: 99px; backdrop-filter: blur(10px); box-shadow: var(--shadow); }
