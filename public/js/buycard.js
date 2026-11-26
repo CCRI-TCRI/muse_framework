@@ -28,6 +28,8 @@ const BuyCard = (() => {
           </div>
           <div class="bc-row bc-total"><span>Total</span><b id="bc-total"></b></div>
         </div>
+      </div>
+      <div class="bc-foot">
         <div class="bc-note" id="bc-note" aria-live="polite"></div>
         <button class="btn block bc-main" id="bc-checkout">Checkout</button>
         <button class="bc-secondary" id="bc-add">Add to bag</button>
@@ -38,6 +40,12 @@ const BuyCard = (() => {
         <div class="muted" id="bc-done-sub"></div>
       </div>`;
     document.body.append(scrim, el);
+
+    const body = el.querySelector('.bc-body');
+    const edge = () => el.classList.toggle('more-below', body.scrollHeight - body.scrollTop - body.clientHeight > 2);
+    body.addEventListener('scroll', edge, { passive: true });
+    addEventListener('resize', edge);
+    el._edge = edge;
 
     scrim.addEventListener('click', close);
     el.querySelector('.bc-close').addEventListener('click', close);
@@ -74,6 +82,8 @@ const BuyCard = (() => {
     let drag = null;
     el.addEventListener('pointerdown', (e) => {
       if (e.target.closest('button, a, input, select, .bc-opts')) return;
+      const scroller = el.querySelector('.bc-body');
+      if (scroller.scrollTop > 0 && e.target.closest('.bc-body')) return; // let the content scroll
       e.preventDefault(); // otherwise the browser starts dragging the product photo
       drag = { y0: e.clientY, dy: 0, t: performance.now(), id: e.pointerId };
       el.setPointerCapture(e.pointerId);
@@ -148,7 +158,9 @@ const BuyCard = (() => {
     el.querySelector('#bc-name').textContent = p.name;
     el.querySelector('#bc-price').innerHTML = Store.priceHtml(p);
     draw();
+    el.querySelector('.bc-body').scrollTop = 0;
     requestAnimationFrame(() => {
+      el._edge();
       document.body.classList.add('bc-open');
       el.querySelector('.bc-close').focus({ preventScroll: true });
       window.Glass && window.Glass.refresh();
