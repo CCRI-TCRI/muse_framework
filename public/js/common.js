@@ -304,7 +304,6 @@ const Store = (() => {
       </header>`;
     document.body.prepend(...top.children);
 
-    const cats = [...new Set((await products().catch(() => [])).map((p) => p.category))];
 
     const extra = document.createElement('div');
     extra.innerHTML = `
@@ -330,28 +329,9 @@ const Store = (() => {
       </nav>`;
     document.body.append(...extra.children);
 
-    const footer = document.createElement('footer');
-    footer.className = 'site-footer';
-    footer.innerHTML = `
-      <div class="wrap"><div class="foot-card">
-        <div class="foot-grid">
-          <div><a class="brand" href="/"><span class="mark">${initial}</span><span class="name" style="display:inline">${name}</span></a><p>${esc(s.about)}</p></div>
-          <div><h4>Shop</h4><ul>
-            <li><a href="/shop">All pieces</a></li>
-            ${cats.slice(0, 6).map((cat) => `<li><a href="/shop?category=${encodeURIComponent(cat)}">${esc(cat)}</a></li>`).join('')}
-          </ul></div>
-          <div><h4>Studio</h4><ul>
-            <li><a href="/videos">Films</a></li>
-            <li><a href="/live">Live try-ons</a></li>
-            <li><a href="/shop?saved=1">Saved pieces</a></li>
-            <li><a href="/orders">My orders</a></li>
-            ${s.instagram ? `<li><a href="${esc(s.instagram)}" target="_blank" rel="noopener">Instagram</a></li>` : ''}
-          </ul></div>
-          <div><h4>Delivery &amp; returns</h4><p>${esc(s.shipping_info)}</p></div>
-        </div>
-        <div class="foot-base"><span>&copy; ${new Date().getFullYear()} ${name}</span><span>Order on WhatsApp · Mobile Money or cash on delivery</span></div>
-      </div></div>`;
-    document.body.append(footer);
+    // No footer: the shop behaves like an app, and everything the footer
+    // used to link to is in the menus.
+
 
     document.addEventListener('click', (e) => {
       const heart = e.target.closest('[data-heart]');

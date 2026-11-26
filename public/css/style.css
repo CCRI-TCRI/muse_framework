@@ -891,3 +891,7 @@ body:not(.admin-body) .btn.wa { background: rgba(37, 211, 102, .9); border: 1px 
 .pinned { background: rgba(255, 255, 255, .86); }
 @media (max-width: 860px) { .bottom-nav.glass { background: rgba(255, 255, 255, .36); } }
 @media (min-width: 861px) { .site-header .bar { background: rgba(255, 255, 255, .8); } }
+/* no footer: leave a little room at the end of every page */
+body:not(.admin-body) main { padding-bottom: 40px; }
+@media (max-width: 860px) { body:not(.admin-body):not(.no-bottom-nav) main { padding-bottom: 24px; } }
+@media (max-width: 860px) { .about-band { margin: 24px var(--gutter) 8px; max-width: none; border-radius: var(--r); padding: 34px 22px; } .about-band p { font-size: 20px; } }
