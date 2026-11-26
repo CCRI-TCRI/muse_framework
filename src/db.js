@@ -39,6 +39,7 @@ const SCHEMA = `
     created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
   );
   ALTER TABLE products ADD COLUMN IF NOT EXISTS compare_cents INTEGER;
+  ALTER TABLE products ADD COLUMN IF NOT EXISTS colours TEXT NOT NULL DEFAULT '';
 
   CREATE TABLE IF NOT EXISTS videos (
     id          SERIAL PRIMARY KEY,
@@ -73,6 +74,7 @@ const SCHEMA = `
     unit_price_cents INTEGER NOT NULL,
     quantity         INTEGER NOT NULL
   );
+  ALTER TABLE order_items ADD COLUMN IF NOT EXISTS colour TEXT;
 
   CREATE TABLE IF NOT EXISTS settings (
     key   TEXT PRIMARY KEY,

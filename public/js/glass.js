@@ -120,6 +120,7 @@
     ['.live-page .chat .log > div', 12, 20, 1, 'blur(4px) saturate(1.6)'],
     ['.live-page .chat input, .live-page .chat .btn', 12, 22, 1, 'blur(6px) saturate(1.7)'],
     ['.pinned', 16, 28, 1, 'blur(10px) saturate(1.8) brightness(1.06)'],
+    ['.buycard', 26, 40, 1, 'blur(24px) saturate(1.9) brightness(1.05)'],
   ];
   const shared = new Map(); // one filter per surface type and size
   let applying = false;

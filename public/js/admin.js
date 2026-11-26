@@ -193,7 +193,7 @@ const Admin = (() => {
 
   function orderCard(o) {
     const first = (o.customer_name || '').split(' ')[0] || 'there';
-    const items = o.items.map((i) => `${i.quantity} x ${i.name}${i.size ? ` (${i.size})` : ''}`).join(', ');
+    const items = o.items.map((i) => `${i.quantity} x ${i.name}${Store.variant(i) ? ` (${Store.variant(i)})` : ''}`).join(', ');
     const msg = {
       pending: `Hello ${first}, thank you for your order #${o.id} from ${cfg.storeName} (${items}). The total is ${money(o.total_cents)}. `,
       paid: `Hello ${first}, your order #${o.id} from ${cfg.storeName} is paid and on its way to you soon.`,
@@ -212,7 +212,7 @@ const Admin = (() => {
           <span class="small muted">${new Date(o.created_at).toLocaleString()}</span>
         </div>
         <div class="items">
-          ${o.items.map((i) => `<div class="totals"><span>${i.quantity} &times; ${esc(i.name)}${i.size ? `, ${esc(i.size)}` : ''}</span><span>${money(i.unit_price_cents * i.quantity)}</span></div>`).join('')}
+          ${o.items.map((i) => `<div class="totals"><span>${i.quantity} &times; ${esc(i.name)}${Store.variant(i) ? `, ${esc(Store.variant(i))}` : ''}</span><span>${money(i.unit_price_cents * i.quantity)}</span></div>`).join('')}
           <div class="totals big"><span>Total</span><span>${money(o.total_cents)}</span></div>
         </div>
         <div class="acts">
@@ -308,7 +308,7 @@ const Admin = (() => {
           <td><b style="font-weight:600">${esc(p.name)}</b><span class="small muted">${esc(p.category)}${p.active ? '' : ' · hidden'}</span></td>
           <td style="white-space:nowrap">${money(p.price_cents)}${p.compare_cents ? `<span class="small muted" style="text-decoration:line-through">${money(p.compare_cents)}</span>` : ''}</td>
           <td>${p.stock <= 3 ? `<span class="pill pending">${p.stock}</span>` : p.stock}</td>
-          <td class="small">${esc(p.sizes.replaceAll(',', ', ')) || 'One size'}</td>
+          <td class="small">${esc(p.sizes.replaceAll(',', ', ')) || 'One size'}${p.colours ? `<span class="muted">${esc(p.colours.replaceAll(',', ', '))}</span>` : ''}</td>
           <td style="white-space:nowrap;text-align:right">
             <button class="btn ghost sm" data-edit="${p.id}">Edit</button>
             <button class="btn danger sm" data-delete="${p.id}">Delete</button>
@@ -366,7 +366,7 @@ const Admin = (() => {
     const f = form.elements;
     const body = {
       name: f.name.value, category: f.category.value, price: f.price.value, compare_price: f.compare_price.value, stock: f.stock.value,
-      sizes: f.sizes.value, description: f.description.value, details: f.details.value, color: f.color.value, active: f.active.checked, images,
+      sizes: f.sizes.value, colours: f.colours.value, description: f.description.value, details: f.details.value, color: f.color.value, active: f.active.checked, images,
     };
     $('save-product').disabled = true;
     $('product-error').classList.add('hidden');

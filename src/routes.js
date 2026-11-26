@@ -15,6 +15,7 @@ const fail = (res, err, code = 400) => res.status(code).json({ error: err.messag
 const publicProduct = (p) => ({
   id: p.id, name: p.name, description: p.description, details: p.details, category: p.category,
   price_cents: p.price_cents, compare_cents: p.compare_cents > p.price_cents ? p.compare_cents : null, sizes: p.sizes.split(',').map((s) => s.trim()).filter(Boolean),
+  colours: (p.colours || '').split(',').map((s) => s.trim()).filter(Boolean),
   in_stock: p.stock > 0, low_stock: p.stock > 0 && p.stock <= 3 ? p.stock : null,
   images: p.images, color: p.color, created_at: p.created_at,
 });
@@ -135,6 +136,7 @@ function readProduct(body) {
     compare,
     stock: Math.max(0, Math.floor(Number(body.stock) || 0)),
     sizes: String(body.sizes || '').split(',').map((s) => s.trim()).filter(Boolean).join(','),
+    colours: String(body.colours || '').split(',').map((s) => s.trim().slice(0, 30)).filter(Boolean).slice(0, 12).join(','),
     color: /^#[0-9a-f]{6}$/i.test(body.color || '') ? body.color : '#e7e2da',
     active: body.active !== false,
     images,
@@ -144,9 +146,9 @@ function readProduct(body) {
 admin.post('/products', wrap(async (req, res) => {
   let f;
   try { f = readProduct(req.body); } catch (err) { return fail(res, err); }
-  const row = await db.one(`INSERT INTO products (name, description, details, category, price_cents, sizes, stock, color, active, images, compare_cents)
-                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING id`,
-    [f.name, f.description, f.details, f.category, f.price, f.sizes, f.stock, f.color, f.active, JSON.stringify(f.images), f.compare]);
+  const row = await db.one(`INSERT INTO products (name, description, details, category, price_cents, sizes, stock, color, active, images, compare_cents, colours)
+                            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12) RETURNING id`,
+    [f.name, f.description, f.details, f.category, f.price, f.sizes, f.stock, f.color, f.active, JSON.stringify(f.images), f.compare, f.colours]);
   res.json(row);
 }));
 
@@ -156,8 +158,8 @@ admin.put('/products/:id', wrap(async (req, res) => {
   let f;
   try { f = readProduct(req.body); } catch (err) { return fail(res, err); }
   await db.query(`UPDATE products SET name = $1, description = $2, details = $3, category = $4, price_cents = $5, sizes = $6,
-                  stock = $7, color = $8, active = $9, images = $10, compare_cents = $11 WHERE id = $12`,
-    [f.name, f.description, f.details, f.category, f.price, f.sizes, f.stock, f.color, f.active, JSON.stringify(f.images), f.compare, existing.id]);
+                  stock = $7, color = $8, active = $9, images = $10, compare_cents = $11, colours = $12 WHERE id = $13`,
+    [f.name, f.description, f.details, f.category, f.price, f.sizes, f.stock, f.color, f.active, JSON.stringify(f.images), f.compare, f.colours, existing.id]);
   for (const old of existing.images) if (!f.images.includes(old)) storage.removeFile(old);
   res.json({ ok: true });
 }));

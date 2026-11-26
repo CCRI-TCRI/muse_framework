@@ -24,10 +24,10 @@ async function viewerCount(session) {
 
 async function pinnedProduct(id) {
   if (!id) return null;
-  const p = await db.one('SELECT id, name, price_cents, images, color, category, sizes, stock FROM products WHERE id = $1 AND active', [id]);
+  const p = await db.one('SELECT id, name, price_cents, images, color, category, sizes, colours, stock FROM products WHERE id = $1 AND active', [id]);
   if (!p) return null;
   const { stock, ...rest } = p;
-  return { ...rest, sizes: p.sizes.split(',').map((s) => s.trim()).filter(Boolean), in_stock: stock > 0 };
+  return { ...rest, sizes: p.sizes.split(',').map((s) => s.trim()).filter(Boolean), colours: (p.colours || '').split(',').map((s) => s.trim()).filter(Boolean), in_stock: stock > 0 };
 }
 
 async function status() {

@@ -31,7 +31,7 @@
       }
 
       // The message that opens in WhatsApp, so the shop sees the whole order straight away.
-      const lines = o.items.map((i) => `• ${i.quantity} x ${i.name}${i.size ? ` (size ${i.size})` : ''}: ${money(i.unit_price_cents * i.quantity)}`).join('\n');
+      const lines = o.items.map((i) => `• ${i.quantity} x ${i.name}${Store.variant(i) ? ` (${Store.variant(i)})` : ''}: ${money(i.unit_price_cents * i.quantity)}`).join('\n');
       const message = `Hello ${cfg.storeName}, I've just placed order #${o.id} on your website.\n\n${lines}\n\nTotal: ${money(o.total_cents)}\n\nName: ${o.customer_name}\nPhone: ${o.phone}\nDeliver to: ${o.shipping_address}${o.notes ? `\nNotes: ${o.notes}` : ''}\n\nPlease confirm my order and how to pay.`;
       Store.rememberOrder(o.id, q.get('token'));
       const numbers = Store.shopNumbers();
@@ -59,7 +59,7 @@
 
         <section class="receipt">
           <h2 style="font-size:18px;margin-bottom:8px">Order summary</h2>
-          ${o.items.map((i) => `<div class="totals"><span>${i.quantity} &times; ${esc(i.name)}${i.size ? `, ${esc(i.size)}` : ''}</span><span>${money(i.unit_price_cents * i.quantity)}</span></div>`).join('')}
+          ${o.items.map((i) => `<div class="totals"><span>${i.quantity} &times; ${esc(i.name)}${Store.variant(i) ? `, ${esc(Store.variant(i))}` : ''}</span><span>${money(i.unit_price_cents * i.quantity)}</span></div>`).join('')}
           <div class="totals big"><span>Total</span><span>${money(o.total_cents)}</span></div>
           <div class="small muted" style="margin-top:12px">Delivering to ${esc(o.customer_name)}, ${esc(o.shipping_address)}. We'll call you on ${esc(o.phone)}.</div>
         </section>

@@ -183,12 +183,32 @@ const Store = (() => {
     renderDrawer();
   }
   function bagCount() { return readBag().reduce((n, i) => n + i.qty, 0); }
-  function addToBag(p, size, qty = 1) {
+  function addToBag(p, size, qty = 1, colour = '') {
     const items = readBag();
-    const found = items.find((i) => i.id === p.id && i.size === size);
+    const found = items.find((i) => i.id === p.id && i.size === size && (i.colour || '') === colour);
     if (found) found.qty = Math.min(found.qty + qty, 20);
-    else items.push({ id: p.id, size, qty, name: p.name, price_cents: p.price_cents, images: (p.images || []).slice(0, 1), color: p.color, category: p.category });
+    else items.push({ id: p.id, size, colour, qty, name: p.name, price_cents: p.price_cents, images: (p.images || []).slice(0, 1), color: p.color, category: p.category });
     writeBag(items);
+  }
+
+  // "Size M · Black"
+  function variant(i) {
+    return [i.size ? `Size ${i.size}` : '', i.colour || ''].filter(Boolean).join(' · ');
+  }
+
+  // A dot in the real colour for common colour names; unknown names get a plain ring.
+  const SWATCHES = {
+    black: '#111111', white: '#f7f7f5', 'off white': '#f2efe6', cream: '#f3ead7', ivory: '#fbf7ec', beige: '#e6d5b8', nude: '#e3bc9a', tan: '#d2b48c', khaki: '#c3b091',
+    brown: '#7b5137', chocolate: '#4e2f1f', camel: '#c19a6b', grey: '#9e9e9e', gray: '#9e9e9e', silver: '#c0c0c0', charcoal: '#36454f',
+    red: '#d32f2f', maroon: '#7b1e2b', wine: '#722f37', burgundy: '#800020', pink: '#f48fb1', 'hot pink': '#ff3e9a', rose: '#e8a0b0', peach: '#ffcba4', coral: '#ff7f50',
+    orange: '#f57c00', rust: '#b5523b', yellow: '#f9c80e', mustard: '#e1ad01', gold: '#d4af37', lemon: '#fff44f',
+    green: '#2e7d32', olive: '#6b7d3a', mint: '#98e2c6', 'lime': '#9ccc3c', emerald: '#1f9d6b', teal: '#1f8a8a',
+    blue: '#1e66d0', navy: '#1f2a4d', 'sky blue': '#87c2f0', 'light blue': '#a7cdf0', 'royal blue': '#2a52be', denim: '#4a6d9c', turquoise: '#30c5c0',
+    purple: '#6a3fb5', lilac: '#c8a2c8', lavender: '#b9a7e6', violet: '#7f3fbf', plum: '#6e3a5e',
+  };
+  function swatch(name) {
+    const hex = SWATCHES[String(name).trim().toLowerCase()];
+    return hex ? `<i class="sw" style="background:${hex}"></i>` : '<i class="sw none"></i>';
   }
 
   function bagLines(items) {
@@ -197,7 +217,7 @@ const Store = (() => {
         <a class="frame" href="/product?id=${i.id}" style="--tint:${tint(i.id)}">${art(i)}</a>
         <div>
           <div class="name">${esc(i.name)}</div>
-          ${i.size ? `<div class="small muted">Size ${esc(i.size)}</div>` : ''}
+          ${variant(i) ? `<div class="small muted">${esc(variant(i))}</div>` : ''}
           <div class="qty">
             <button data-n="${n}" data-d="-1" aria-label="One fewer">&minus;</button><span>${i.qty}</span><button data-n="${n}" data-d="1" aria-label="One more">+</button>
           </div>
@@ -383,5 +403,5 @@ const Store = (() => {
 
   const live = () => livePromise;
 
-  return { initials, myOrders, rememberOrder, tint, intl, shopNumbers, waLink, telLink, live, icon, headline, priceHtml, heartButton, searchRow, readSaved, toggleSaved, api, config, products, money, esc, art, card, isDark, readBag, writeBag, addToBag, bagCount, bagLines, bagClicks, subtotal, checkout, openDrawer, chrome, reveal };
+  return { variant, swatch, initials, myOrders, rememberOrder, tint, intl, shopNumbers, waLink, telLink, live, icon, headline, priceHtml, heartButton, searchRow, readSaved, toggleSaved, api, config, products, money, esc, art, card, isDark, readBag, writeBag, addToBag, bagCount, bagLines, bagClicks, subtotal, checkout, openDrawer, chrome, reveal };
 })();

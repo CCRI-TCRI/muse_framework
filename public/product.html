@@ -12,6 +12,7 @@
   <main class="wrap" id="page"></main>
 
   <script src="/js/common.js"></script>
+  <script src="/js/buycard.js"></script>
   <script>
     (async () => {
       const { esc, art, money, card, icon, priceHtml, heartButton } = Store;
@@ -27,8 +28,6 @@
       document.title = `${p.name} · ${cfg.storeName}`;
       document.body.classList.add('no-bottom-nav');
 
-      let size = p.sizes.length === 1 ? p.sizes[0] : '';
-      let qty = 1;
       let shot = 0;
       const shots = Math.max(p.images.length, 1);
       const off = p.compare_cents ? Math.round((1 - p.price_cents / p.compare_cents) * 100) : 0;
@@ -60,12 +59,13 @@
                 ${!p.in_stock ? '<span class="badge-soft">Sold out</span>' : p.low_stock ? `<span class="badge-soft warn">Only ${p.low_stock} left</span>` : '<span class="badge-soft good">In stock</span>'}
                 ${p.videos.length ? '<span class="badge-soft">On film</span>' : ''}
               </div>
-              ${p.in_stock ? `<div class="stepper"><button data-q="-1" aria-label="One fewer">&minus;</button><span id="qty">1</span><button data-q="1" aria-label="One more">+</button></div>` : ''}
             </div>
 
-            ${p.sizes.length > 1 ? `
-              <h3>Size <span class="muted small" id="size-label" style="font-weight:400;margin-left:6px">Choose one</span></h3>
-              <div class="sizes">${p.sizes.map((s) => `<button class="size" data-size="${esc(s)}">${esc(s)}</button>`).join('')}</div>` : ''}
+            ${p.sizes.length || p.colours.length ? `
+              <div class="avail">
+                ${p.sizes.length ? `<div><span class="muted">Sizes</span><b>${p.sizes.map(esc).join(', ')}</b></div>` : ''}
+                ${p.colours.length ? `<div><span class="muted">Colours</span><b class="avail-sw">${p.colours.map((c) => `${Store.swatch(c)}${esc(c)}`).join(' ')}</b></div>` : ''}
+              </div>` : ''}
 
             <h3>Description</h3>
             <div class="desc">${esc(p.description)}</div>
@@ -102,33 +102,9 @@
         page.querySelectorAll('.thumbs button').forEach((x) => x.classList.toggle('on', x === b));
       });
 
-      page.querySelector('.sizes')?.addEventListener('click', (e) => {
-        const b = e.target.closest('[data-size]');
-        if (!b) return;
-        size = b.dataset.size;
-        page.querySelectorAll('.size').forEach((x) => x.classList.toggle('on', x === b));
-        document.getElementById('size-label').textContent = `Size ${size}`;
-        document.getElementById('note').textContent = '';
-      });
-
-      page.querySelector('.stepper')?.addEventListener('click', (e) => {
-        const b = e.target.closest('[data-q]');
-        if (!b) return;
-        qty = Math.max(1, Math.min(20, qty + Number(b.dataset.q)));
-        document.getElementById('qty').textContent = qty;
-      });
-
-      function add() {
-        if (p.sizes.length > 1 && !size) {
-          document.getElementById('note').textContent = 'Please choose a size first.';
-          page.querySelector('.sizes').scrollIntoView({ behavior: 'smooth', block: 'center' });
-          return false;
-        }
-        Store.addToBag(p, size, qty);
-        return true;
-      }
-      document.getElementById('add').addEventListener('click', () => { if (add()) Store.openDrawer('bag'); });
-      document.getElementById('buy').addEventListener('click', () => { if (add()) location.href = '/checkout'; });
+      // Both buttons bring up the buy card, where size, colour and quantity are chosen.
+      document.getElementById('add').addEventListener('click', () => BuyCard.open(p));
+      document.getElementById('buy').addEventListener('click', () => BuyCard.open(p));
       Store.reveal();
     })();
   </script>

@@ -77,7 +77,7 @@
       document.getElementById('lines').innerHTML = items.map((i) => `
         <div class="mini-line">
           <div class="frame" style="--tint:${tint(i.id)}">${art(i)}</div>
-          <div><b>${esc(i.name)}</b><span class="small muted">${i.size ? `Size ${esc(i.size)} · ` : ''}Qty ${i.qty}</span></div>
+          <div><b>${esc(i.name)}</b><span class="small muted">${Store.variant(i) ? `${esc(Store.variant(i))} · ` : ''}Qty ${i.qty}</span></div>
           <span style="font-weight:600">${money(i.price_cents * i.qty)}</span>
         </div>`).join('');
       document.getElementById('subtotal').textContent = money(total);
@@ -101,7 +101,7 @@
         err.classList.add('hidden');
         const details = Object.fromEntries(['name', 'phone', 'address', 'notes'].map((k) => [k, form.elements[k].value.trim()]));
         try {
-          const r = await Store.api('/orders', { method: 'POST', body: { ...details, items: items.map(({ id, size, qty }) => ({ id, size, qty })) } });
+          const r = await Store.api('/orders', { method: 'POST', body: { ...details, items: items.map(({ id, size, colour, qty }) => ({ id, size, colour, qty })) } });
           try { localStorage.setItem('store-details', JSON.stringify({ name: details.name, phone: details.phone, address: details.address })); } catch {}
           Store.rememberOrder(r.id, r.token);
           Store.writeBag([]);

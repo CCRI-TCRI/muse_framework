@@ -86,7 +86,10 @@
               <label class="field"><span>Was price (shillings), for a discount</span><input name="compare_price" type="number" min="500" step="500" placeholder="Optional"></label>
               <label class="field"><span>In stock</span><input name="stock" type="number" min="0" step="1" value="10" required></label>
             </div>
-            <label class="field"><span>Sizes, separated by commas (leave empty for one size)</span><input name="sizes" placeholder="S, M, L, XL"></label>
+            <div class="row2">
+              <label class="field"><span>Sizes, separated by commas (empty for one size)</span><input name="sizes" placeholder="S, M, L, XL"></label>
+              <label class="field"><span>Colours, separated by commas (optional)</span><input name="colours" placeholder="Black, Red, Orange"></label>
+            </div>
             <label class="field"><span>Description</span><textarea name="description" maxlength="4000"></textarea></label>
             <label class="field"><span>Fabric and care, one point per line</span><textarea name="details" maxlength="2000" placeholder="100% cotton&#10;Hand wash cold&#10;Made in Uganda"></textarea></label>
             <div class="field">

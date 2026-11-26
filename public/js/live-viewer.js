@@ -80,6 +80,7 @@
         <div class="small muted">${money(p.price_cents)}</div>
         ${p.in_stock ? `<div class="row">
           ${p.sizes.length > 1 ? `<select id="pin-size" aria-label="Size"><option value="">Size</option>${p.sizes.map((s) => `<option>${esc(s)}</option>`).join('')}</select>` : ''}
+          ${(p.colours || []).length > 1 ? `<select id="pin-colour" aria-label="Colour"><option value="">Colour</option>${p.colours.map((c) => `<option>${esc(c)}</option>`).join('')}</select>` : ''}
           <button class="btn" id="pin-add">Add to bag</button>
         </div><div class="small" id="pin-note" style="margin-top:6px"></div>` : '<div class="small" style="margin-top:6px">Sold out</div>'}
       </div>`;
@@ -87,8 +88,11 @@
     requestAnimationFrame(() => theater.style.setProperty('--pin-h', `${box.offsetHeight}px`));
     $('pin-add')?.addEventListener('click', () => {
       const size = p.sizes.length > 1 ? $('pin-size').value : (p.sizes[0] || '');
+      const colours = p.colours || [];
+      const colour = colours.length > 1 ? $('pin-colour').value : (colours[0] || '');
       if (p.sizes.length > 1 && !size) { $('pin-note').textContent = 'Choose a size'; return; }
-      Store.addToBag(p, size);
+      if (colours.length > 1 && !colour) { $('pin-note').textContent = 'Choose a colour'; return; }
+      Store.addToBag(p, size, 1, colour);
       $('pin-note').innerHTML = 'Added. <button class="text-btn" data-open="bag">View bag</button>';
     });
   }

@@ -28,6 +28,9 @@ async function priceCart(items) {
     const sizes = product.sizes.split(',').map((s) => s.trim()).filter(Boolean);
     const size = sizes.length ? String(raw.size || '') : '';
     if (sizes.length && !sizes.includes(size)) throw new Error(`Please choose a size for ${product.name}.`);
+    const colours = (product.colours || '').split(',').map((s) => s.trim()).filter(Boolean);
+    const colour = colours.length ? String(raw.colour || '') : '';
+    if (colours.length && !colours.includes(colour)) throw new Error(`Please choose a colour for ${product.name}.`);
 
     wanted.set(id, (wanted.get(id) || 0) + qty);
     if (wanted.get(id) > product.stock) {
@@ -35,7 +38,7 @@ async function priceCart(items) {
         ? `Only ${product.stock} of ${product.name} left. Please lower the quantity.`
         : `${product.name} has just sold out, sorry.`);
     }
-    lines.push({ product, size, qty });
+    lines.push({ product, size, colour, qty });
   }
   return lines;
 }
@@ -56,8 +59,8 @@ async function place(body) {
   const order = await db.one(`INSERT INTO orders (total_cents, customer_name, phone, shipping_address, notes)
                               VALUES ($1, $2, $3, $4, $5) RETURNING id`, [total, name, phone, address, notes || null]);
   for (const l of lines) {
-    await db.query(`INSERT INTO order_items (order_id, product_id, name, size, unit_price_cents, quantity)
-                    VALUES ($1, $2, $3, $4, $5, $6)`, [order.id, l.product.id, l.product.name, l.size || null, l.product.price_cents, l.qty]);
+    await db.query(`INSERT INTO order_items (order_id, product_id, name, size, colour, unit_price_cents, quantity)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7)`, [order.id, l.product.id, l.product.name, l.size || null, l.colour || null, l.product.price_cents, l.qty]);
   }
   return { id: order.id, token: orderToken(order.id) };
 }
@@ -68,7 +71,7 @@ async function summary(id, token) {
   const order = await db.one(`SELECT id, status, total_cents, customer_name, phone, shipping_address, notes, created_at
                               FROM orders WHERE id = $1`, [id]);
   if (!order) return null;
-  const items = await db.query('SELECT name, size, unit_price_cents, quantity FROM order_items WHERE order_id = $1 ORDER BY id', [id]);
+  const items = await db.query('SELECT name, size, colour, unit_price_cents, quantity FROM order_items WHERE order_id = $1 ORDER BY id', [id]);
   return { ...order, items };
 }
 
