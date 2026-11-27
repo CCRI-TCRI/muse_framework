@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Your bag</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <main class="wrap">
+    <div class="bag-page">
+      <section>
+        <h1>Your bag</h1>
+        <div id="cancelled" class="note hidden">Your bag is just as you left it.</div>
+        <div id="lines"></div>
+      </section>
+      <aside class="summary" id="summary">
+        <div class="eyebrow">Summary</div>
+        <div class="totals"><span>Subtotal</span><span id="total"></span></div>
+        <div class="totals muted small"><span>Delivery</span><span>Confirmed on WhatsApp</span></div>
+        <div class="note err hidden" id="error"></div>
+        <button class="btn block" id="checkout">Checkout</button>
+        <div class="small muted">Order now, then confirm with us on WhatsApp. Pay by Mobile Money or cash on delivery.</div>
+      </aside>
+    </div>
+  </main>
+
+  <script src="/js/common.js"></script>
+  <script>
+    (async () => {
+      await Store.chrome('bag');
+      if (new URLSearchParams(location.search).get('cancelled')) document.getElementById('cancelled').classList.remove('hidden');
+      const lines = document.getElementById('lines');
+
+      function draw() {
+        const items = Store.readBag();
+        document.getElementById('summary').classList.toggle('hidden', !items.length);
+        lines.innerHTML = items.length ? Store.bagLines(items)
+          : '<div class="empty" style="text-align:left;padding:30px 0"><p class="muted">There is nothing in your bag yet.</p><a class="btn ghost" href="/shop">Shop the collection</a></div>';
+        document.getElementById('total').textContent = Store.money(Store.subtotal(items));
+      }
+      lines.addEventListener('click', (e) => { if (Store.bagClicks(e)) draw(); });
+      document.getElementById('checkout').addEventListener('click', (e) => Store.checkout());
+      draw();
+    })();
+  </script>
+</body>
+</html>

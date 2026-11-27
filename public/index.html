@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/css/style.css">
+  <script>
+    // First visit on this phone: start on the welcome screen.
+    try { if (!localStorage.getItem('store-welcomed') || location.hash === '#welcome') document.documentElement.classList.add('show-splash'); } catch {}
+  </script>
+</head>
+<body>
+  <section class="splash" id="splash" aria-label="Welcome">
+    <div class="splash-photo" id="splash-photo"></div>
+    <div class="splash-copy">
+      <h1 id="splash-title"></h1>
+      <div class="slide" id="slide" role="button" tabindex="0" aria-label="Get started">
+        <span class="knob" id="knob"></span>
+        <span>Get Started</span>
+        <span class="chev">&rsaquo;&rsaquo;&rsaquo;</span>
+      </div>
+    </div>
+  </section>
+  <main class="wrap">
+    <div id="search-slot"></div>
+    <section class="promo" id="promo"></section>
+    <div id="live-band"></div>
+
+    <div class="chips" id="chips"></div>
+
+    <section class="section" style="padding-top:20px">
+      <div class="section-head">
+        <h2>New items</h2>
+        <a class="u-link" href="/shop">See all</a>
+      </div>
+      <div class="grid" id="new-in"></div>
+    </section>
+
+    <section id="cats-section" class="section hidden">
+      <div class="section-head"><h2>Shop by category</h2></div>
+      <div class="cat-tiles" id="cats"></div>
+    </section>
+
+    <section id="films-section" class="section hidden">
+      <div class="section-head"><h2>See it move</h2><a class="u-link" href="/videos">All films</a></div>
+      <div class="films" id="films"></div>
+    </section>
+  </main>
+
+  <section class="about-band reveal">
+    <div class="eyebrow">The studio</div>
+    <p id="about"></p>
+  </section>
+
+  <script src="/js/common.js"></script>
+  <script>
+    // The welcome screen: a big photo, the headline, and a "Get Started" bar
+    // you can swipe or tap.
+    function welcome(s, products) {
+      const splash = document.getElementById('splash');
+      if (!document.documentElement.classList.contains('show-splash')) { splash.remove(); return; }
+      document.body.style.overflow = 'hidden';
+      const withPhoto = products.find((p) => p.images.length);
+      const photo = s.splash_media || (s.hero_media_type === 'image' && s.hero_media) || (withPhoto && withPhoto.images[0]);
+      document.getElementById('splash-photo').innerHTML = photo
+        ? `<img src="${Store.esc(photo)}" alt="">`
+        : (products[0] ? Store.art(products[0]) : '');
+      document.getElementById('splash-title').innerHTML = Store.headline(s.splash_title || 'Your Everyday *Shopping* _Companion!_');
+      document.getElementById('knob').innerHTML = Store.icon('box');
+
+      const slide = document.getElementById('slide');
+      const knob = document.getElementById('knob');
+      const max = () => slide.clientWidth - knob.offsetWidth - 14;
+      let startX = null, moved = 0, done = false;
+
+      function finish() {
+        if (done) return;
+        done = true;
+        knob.style.transform = `translateX(${max()}px)`;
+        try { localStorage.setItem('store-welcomed', '1'); } catch {}
+        document.documentElement.classList.remove('show-splash');
+        if (location.hash === '#welcome') history.replaceState(null, '', '/');
+        setTimeout(() => {
+          splash.classList.add('leaving');
+          document.body.style.overflow = '';
+          setTimeout(() => splash.remove(), 450);
+        }, 220);
+      }
+      slide.addEventListener('pointerdown', (e) => { startX = e.clientX; moved = 0; slide.classList.add('dragging'); slide.setPointerCapture(e.pointerId); });
+      slide.addEventListener('pointermove', (e) => {
+        if (startX === null) return;
+        moved = Math.max(0, Math.min(max(), e.clientX - startX));
+        knob.style.transform = `translateX(${moved}px)`;
+      });
+      slide.addEventListener('pointerup', () => {
+        slide.classList.remove('dragging');
+        startX = null;
+        // A tap, or a swipe past halfway, gets you in. A short drag springs back.
+        if (moved < 8 || moved > max() * 0.5) finish();
+        else knob.style.transform = '';
+      });
+      slide.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); finish(); } });
+    }
+  </script>
+  <script>
+    (async () => {
+      const { esc, art, card, money, headline } = Store;
+      const cfg = await Store.chrome('home');
+      const s = cfg.settings;
+      const products = await Store.products();
+      document.getElementById('search-slot').innerHTML = Store.searchRow();
+      welcome(s, products);
+
+      // Promo banner: the uploaded picture or film, otherwise a few pieces from the shop.
+      const media = s.hero_media
+        ? `<div class="media">${s.hero_media_type === 'video'
+            ? `<video src="${esc(s.hero_media)}" autoplay muted loop playsinline></video>`
+            : `<img src="${esc(s.hero_media)}" alt="">`}</div>`
+        : `<div class="promo-stack">${products.slice(0, 3).map((p) => `<a href="/product?id=${p.id}" style="background:${Store.tint(p.id)}">${art(p)}</a>`).join('')}</div>`;
+      document.getElementById('promo').innerHTML = `
+        <div class="promo-copy">
+          ${s.hero_kicker ? `<span class="promo-tag">${esc(s.hero_kicker)}</span>` : ''}
+          <h1>${headline(s.hero_title)}</h1>
+          <p>${esc(s.hero_text)}</p>
+          <a class="btn" href="/shop">Explore more ${Store.icon('arrow')}</a>
+        </div>
+        <div class="promo-art">${media}</div>`;
+
+      // Category chips filter the "New items" grid right here.
+      const cats = ['All', ...Store.categories()];
+      let current = 'All';
+      const chips = document.getElementById('chips');
+      function draw() {
+        chips.innerHTML = cats.map((c) => `<button class="chip ${c === current ? 'on' : ''}" data-cat="${esc(c)}">${esc(c)}</button>`).join('');
+        const list = products.filter((p) => current === 'All' || p.category === current).slice(0, 8);
+        document.getElementById('new-in').innerHTML = list.map(card).join('') || '<p class="muted">New pieces are on the way.</p>';
+        Store.reveal();
+      }
+      chips.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-cat]');
+        if (b) { current = b.dataset.cat; draw(); }
+      });
+      draw();
+
+      document.getElementById('about').textContent = s.about;
+
+      // One tile per category, showing its newest piece (or a drawing if it's empty for now).
+      const list = Store.categories();
+      if (list.length) {
+        document.getElementById('cats-section').classList.remove('hidden');
+        document.getElementById('cats').innerHTML = list.map((cat, i) => {
+          const p = products.find((x) => x.category === cat && x.images.length) || products.find((x) => x.category === cat)
+            || { id: i, name: cat, category: cat, images: [], color: '#d9d4cc' };
+          return `<a class="cat-tile reveal" style="--tint:${Store.tint(i + 2)}" href="/shop?category=${encodeURIComponent(cat)}">${art(p)}<span class="label">${esc(cat)}</span></a>`;
+        }).join('');
+      }
+
+      const films = await Store.api('/videos');
+      if (films.length) {
+        document.getElementById('films-section').classList.remove('hidden');
+        document.getElementById('films').innerHTML = films.slice(0, 3).map((v) => `
+          <div class="film reveal">
+            <video src="${esc(v.file)}" muted loop playsinline preload="metadata"></video>
+            <div class="cap"><h3>${esc(v.title)}</h3>${v.product_name ? `<a href="/product?id=${v.product_id}">${esc(v.product_name)}, ${money(v.product_price)}</a>` : ''}</div>
+          </div>`).join('');
+        const io = new IntersectionObserver((es) => es.forEach((e) => (e.isIntersecting ? e.target.play().catch(() => {}) : e.target.pause())), { threshold: 0.4 });
+        document.querySelectorAll('#films video').forEach((v) => io.observe(v));
+      }
+
+      Store.live().then((st) => {
+        if (!st.live) return;
+        document.getElementById('live-band').innerHTML = `
+          <section class="live-band">
+            <div><div class="eyebrow"><span class="live-dot"></span>Live now</div><h2>${esc(st.title)}</h2></div>
+            <a class="btn light" href="/live">Watch and shop</a>
+          </section>`;
+      });
+
+      Store.reveal();
+    })();
+  </script>
+</body>
+</html>

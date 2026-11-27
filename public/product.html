@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title></title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <main class="wrap" id="page"></main>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/buycard.js"></script>
+  <script>
+    (async () => {
+      const { esc, art, money, card, icon, priceHtml, heartButton } = Store;
+      const cfg = await Store.chrome('shop');
+      const page = document.getElementById('page');
+      let p;
+      try {
+        p = await Store.api('/products/' + encodeURIComponent(new URLSearchParams(location.search).get('id')));
+      } catch (err) {
+        page.innerHTML = `<div class="empty"><h2>${esc(err.message)}</h2><a class="btn" href="/shop">Back to the shop</a></div>`;
+        return;
+      }
+      document.title = `${p.name} · ${cfg.storeName}`;
+      document.body.classList.add('no-bottom-nav');
+
+      let shot = 0;
+      const shots = Math.max(p.images.length, 1);
+      const off = p.compare_cents ? Math.round((1 - p.price_cents / p.compare_cents) * 100) : 0;
+
+      page.innerHTML = `
+        <nav class="crumbs"><a href="/shop">Shop</a> / <a href="/shop?category=${encodeURIComponent(p.category)}">${esc(p.category)}</a></nav>
+        <div class="pdp">
+          <div class="viewer">
+            <div class="stagebox" style="--tint:${Store.tint(p.id)}">
+              <div class="top">
+                <a class="icon-btn" href="/shop" data-back aria-label="Back">${icon('back')}</a>
+                <span class="title">Details</span>
+                ${heartButton(p.id)}
+              </div>
+              <div id="main-shot" style="position:absolute;inset:0">${art(p)}</div>
+            </div>
+          </div>
+
+          <div class="sheet">
+            ${shots > 1 ? `<div class="thumbs" style="--tint:${Store.tint(p.id)}">${p.images.map((_, i) => `<button class="${i === 0 ? 'on' : ''}" data-shot="${i}" aria-label="Photo ${i + 1}">${art(p, { index: i })}</button>`).join('')}</div>` : ''}
+            <div class="sheet-top">
+              <div><h1>${esc(p.name)}</h1><div class="sub">${esc(p.category)}</div></div>
+              <div class="price">${p.compare_cents ? `<span class="was">${money(p.compare_cents)}</span>` : ''}${money(p.price_cents)}</div>
+            </div>
+
+            <div class="meta-row">
+              <div class="badges">
+                ${off >= 5 ? `<span class="badge-soft good">${off}% off</span>` : ''}
+                ${!p.in_stock ? '<span class="badge-soft">Sold out</span>' : p.low_stock ? `<span class="badge-soft warn">Only ${p.low_stock} left</span>` : '<span class="badge-soft good">In stock</span>'}
+                ${p.videos.length ? '<span class="badge-soft">On film</span>' : ''}
+              </div>
+            </div>
+
+            ${p.sizes.length || p.colours.length ? `
+              <div class="avail">
+                ${p.sizes.length ? `<div><span class="muted">Sizes</span><b>${p.sizes.map(esc).join(', ')}</b></div>` : ''}
+                ${p.colours.length ? `<div><span class="muted">Colours</span><b class="avail-sw">${p.colours.map((c) => `${Store.swatch(c)}${esc(c)}`).join(' ')}</b></div>` : ''}
+              </div>` : ''}
+
+            <h3>Description</h3>
+            <div class="desc">${esc(p.description)}</div>
+
+            <div class="acc">
+              ${p.details ? `<details><summary>Composition &amp; care</summary><div class="body">${esc(p.details)}</div></details>` : ''}
+              <details><summary>Delivery &amp; returns</summary><div class="body">${esc(cfg.settings.shipping_info)}</div></details>
+            </div>
+
+            <div class="stock-note" id="note"></div>
+            <div class="buybar">
+              <button class="btn round" id="add" aria-label="Add to bag" ${p.in_stock ? '' : 'disabled'}>${icon('bag')}</button>
+              <button class="btn" id="buy" ${p.in_stock ? '' : 'disabled'}>${p.in_stock ? 'Buy now' : 'Sold out'}</button>
+            </div>
+          </div>
+        </div>
+
+        ${p.videos.length ? `
+          <section class="section">
+            <div class="section-head"><h2>See it move</h2></div>
+            <div class="films">${p.videos.map((v) => `<div class="film"><video src="${esc(v.file)}" controls playsinline preload="metadata"></video><div class="cap"><h3>${esc(v.title)}</h3></div></div>`).join('')}</div>
+          </section>` : ''}
+        ${p.related.length ? `
+          <section class="section">
+            <div class="section-head"><h2>You may also like</h2><a class="u-link" href="/shop?category=${encodeURIComponent(p.category)}">See all</a></div>
+            <div class="grid">${p.related.map(card).join('')}</div>
+          </section>` : ''}`;
+
+      page.querySelector('.thumbs')?.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-shot]');
+        if (!b) return;
+        shot = Number(b.dataset.shot);
+        document.getElementById('main-shot').innerHTML = art(p, { index: shot });
+        page.querySelectorAll('.thumbs button').forEach((x) => x.classList.toggle('on', x === b));
+      });
+
+      // Both buttons bring up the buy card, where size, colour and quantity are chosen.
+      document.getElementById('add').addEventListener('click', () => BuyCard.open(p));
+      document.getElementById('buy').addEventListener('click', () => BuyCard.open(p));
+      Store.reveal();
+    })();
+  </script>
+</body>
+</html>

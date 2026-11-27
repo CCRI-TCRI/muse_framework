@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>My orders</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <main class="wrap" style="padding-bottom:40px">
+    <header class="shop-head" style="margin-bottom:18px">
+      <div><div class="eyebrow">Orders placed on this phone</div><h1>My orders</h1></div>
+    </header>
+    <div id="me" class="contact" style="margin-top:0;margin-bottom:16px"></div>
+    <div id="list" style="display:grid;gap:14px"></div>
+  </main>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/whatsapp-icon.js"></script>
+  <script>
+    (async () => {
+      const { esc, money } = Store;
+      await Store.chrome('orders');
+      const label = { pending: 'Waiting for WhatsApp', paid: 'Paid', shipped: 'Delivered', cancelled: 'Cancelled' };
+
+      let me = {};
+      try { me = JSON.parse(localStorage.getItem('store-details') || '{}'); } catch {}
+      const numbers = Store.shopNumbers();
+      document.getElementById('me').innerHTML = `
+        <h2>${me.name ? `Hello, ${esc(me.name.split(' ')[0])}` : 'Hello there'}</h2>
+        <p style="margin:0">${me.phone ? `We'll reach you on ${esc(me.phone)}${me.address ? ` and deliver to ${esc(me.address)}` : ''}.` : 'Your details are saved here after your first order, so checkout is quicker next time.'}</p>
+        ${numbers.length ? `<div class="small muted" style="margin-top:10px">Questions? WhatsApp or call ${numbers.map(esc).join(' or ')}.</div>` : ''}`;
+
+      const mine = Store.myOrders();
+      const list = document.getElementById('list');
+      if (!mine.length) {
+        list.innerHTML = '<div class="empty"><h2>No orders yet</h2><p class="muted">When you place an order it shows up here, so you can follow it.</p><a class="btn" href="/shop">Start shopping</a></div>';
+        return;
+      }
+      const orders = (await Promise.all(mine.map((o) => Store.api(`/orders/${o.id}?token=${encodeURIComponent(o.token)}`).then((r) => ({ ...r, token: o.token })).catch(() => null)))).filter(Boolean);
+      list.innerHTML = orders.map((o) => `
+        <a class="receipt" style="margin:0;display:block" href="/success?order=${o.id}&token=${encodeURIComponent(o.token)}">
+          <div class="totals" style="align-items:center">
+            <b style="font-size:17px">Order #${o.id}</b>
+            <span class="badge-soft ${o.status === 'shipped' ? 'good' : o.status === 'pending' ? 'warn' : ''}">${label[o.status] || o.status}</span>
+          </div>
+          <div class="small muted" style="margin:4px 0 10px">${new Date(o.created_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })}</div>
+          ${o.items.map((i) => `<div class="totals small"><span>${i.quantity} &times; ${esc(i.name)}${Store.variant(i) ? `, ${esc(Store.variant(i))}` : ''}</span><span>${money(i.unit_price_cents * i.quantity)}</span></div>`).join('')}
+          <div class="totals big"><span>Total</span><span>${money(o.total_cents)}</span></div>
+        </a>`).join('') || '<p class="muted">We could not load your orders right now.</p>';
+    })();
+  </script>
+</body>
+</html>

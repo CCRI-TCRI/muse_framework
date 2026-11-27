@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Live</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="/css/style.css">
+</head>
+<body>
+  <main class="lv" id="lv">
+    <video id="video" autoplay playsinline muted class="hidden"></video>
+
+    <div class="lv-top">
+      <div class="lv-host">
+        <span class="lv-avatar" id="lv-avatar"></span>
+        <span class="lv-host-text"><b id="lt-store"></b><span class="lv-state" id="lv-state">Off air</span></span>
+      </div>
+      <div class="lv-top-right">
+        <span class="lv-viewers hidden" id="count"></span>
+        <a class="lv-close" href="/" id="lt-back" data-back aria-label="Back to the shop">&times;</a>
+      </div>
+    </div>
+
+    <button class="lv-sound hidden" id="unmute">Tap for sound</button>
+
+    <div class="lv-idle" id="idle">
+      <div class="lv-idle-eyebrow">Live try-ons</div>
+      <h2>We're off air</h2>
+      <p>Keep this page open and the next session starts here by itself. We show the pieces as we try them on, and you can ask questions in the chat.</p>
+      <div class="lv-idle-actions"><a class="lv-pill light" href="/shop">Shop now</a><a class="lv-pill" href="/videos">Watch films</a></div>
+    </div>
+
+    <div class="lv-bottom">
+      <div class="lv-pinned hidden" id="pinned"></div>
+      <div class="lv-log" id="log"></div>
+      <form class="lv-bar" id="chat-form" autocomplete="off">
+        <div class="lv-name hidden" id="lv-name-row"><input id="name" placeholder="Your name" maxlength="30" aria-label="Your name"></div>
+        <div class="lv-say"><input id="text" placeholder="Say something..." maxlength="300" aria-label="Message"><button class="lv-send" aria-label="Send" id="lv-send"></button></div>
+        <button type="button" class="lv-tool" data-open="bag" aria-label="Bag" id="lv-bag"></button>
+        <button type="button" class="lv-tool" id="lv-share" aria-label="Share this live"></button>
+      </form>
+    </div>
+  </main>
+
+  <script src="/js/common.js"></script>
+  <script src="/js/buycard.js"></script>
+  <script src="/js/live-viewer.js"></script>
+</body>
+</html>

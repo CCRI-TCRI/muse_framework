@@ -1,0 +1,18 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "outputDirectory": "public",
+  "cleanUrls": true,
+  "functions": {
+    "api/index.js": {
+      "maxDuration": 30,
+      "excludeFiles": "{data/**,uploads/**,node_modules/@electric-sql/**,node_modules/esbuild/**,node_modules/@esbuild/**}"
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "/api"
+    }
+  ]
+}
