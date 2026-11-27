@@ -116,11 +116,11 @@
     ['.buybar', 16, 30, 1, 'blur(6px) saturate(1.8) brightness(1.06)'],
     ['.place-bar', 16, 30, 1, 'blur(6px) saturate(1.8) brightness(1.06)'],
     ['.drawer', 22, 36, 1, 'blur(14px) saturate(1.8) brightness(1.06)'],
-    ['.lt-back, .stage .badge span, .sound', 10, 20, 1.06, 'blur(3px) saturate(1.6)'],
-    ['.live-page .chat .log > div', 12, 20, 1, 'blur(4px) saturate(1.6)'],
-    ['.live-page .chat input, .live-page .chat .btn', 12, 22, 1, 'blur(6px) saturate(1.7)'],
-    ['.pinned', 16, 28, 1, 'blur(10px) saturate(1.8) brightness(1.06)'],
     ['.buycard', 26, 40, 1, 'blur(24px) saturate(1.9) brightness(1.05)'],
+    ['.lv-host, .lv-viewers, .lv-close, .lv-sound', 10, 20, 1.06, 'blur(3px) saturate(1.6)'],
+    ['.lv-log > div', 12, 20, 1, 'blur(4px) saturate(1.6)'],
+    ['.lv-say, .lv-tool', 12, 22, 1.04, 'blur(6px) saturate(1.7)'],
+    ['.lv-pinned', 16, 28, 1, 'blur(10px) saturate(1.8) brightness(1.06)'],
   ];
   const shared = new Map(); // one filter per surface type and size
   let applying = false;

@@ -1,28 +1,36 @@
-// Live page for shoppers. Checks in with the server every second or two,
-// picks up chat, the pinned piece, and the seller's video connection.
+// Live page for shoppers: the stream fills the screen with everything floating
+// on top, like a live streaming app. It checks in with the server every second
+// or two for chat, the piece being worn, and the seller's video connection.
 (async () => {
   const { api, esc, money, art } = Store;
   const cfg = await Store.chrome('live');
   const $ = (id) => document.getElementById(id);
   const video = $('video');
-  const theater = document.querySelector('.theater');
+  const lv = $('lv');
   document.body.classList.add('live-page', 'no-bottom-nav');
-  $('lt-back').innerHTML = Store.icon('back');
+
+  const ic = (d) => `<svg viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+  $('lv-send').innerHTML = ic('<path d="M4 12 20 4l-6 16-3-7z"/>');
+  $('lv-bag').innerHTML = `${Store.icon('bag')}<span class="lv-count" data-bag-count></span>`;
+  $('lv-share').innerHTML = ic('<path d="M12 3v12M7 8l5-5 5 5"/><path d="M5 13v6a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-6"/>');
+  $('lv-avatar').textContent = Store.initials(cfg.storeName);
   $('lt-store').textContent = cfg.storeName;
+  Store.writeBag(Store.readBag()); // fill the bag count on the new button
 
   let session = null;      // which stream we're watching
   let viewerId = null;     // our seat in that stream
   let lastChat = 0;
   let pc = null;
-  let pinnedId = null;
+  let pinned = null;
   let joinedAt = 0;
   let wasLive = false;
   let stopped = false;
   let timer = null;
   // Leaving the page inside the app: stop polling and drop the video.
-  Store.onLeave(() => { stopped = true; clearTimeout(timer); dropVideo(); });
+  Store.onLeave(() => { stopped = true; clearTimeout(timer); dropVideo(); BuyCard.close(); });
 
-  try { $('name').value = localStorage.getItem('store-chat-name') || ''; } catch {}
+  let myName = '';
+  try { myName = localStorage.getItem('store-chat-name') || ''; } catch {}
 
   // Waits until the browser has found its network routes, so the whole answer
   // goes in one message instead of many small ones.
@@ -46,7 +54,11 @@
     dropVideo();
     viewerId = null;
     const r = await api('/live/join', { method: 'POST' });
-    if (r.full) { $('idle').innerHTML = '<div class="eyebrow">Full house</div><h2>So many of you</h2><p class="small">The stream is full right now. Try again in a few minutes.</p>'; return; }
+    if (r.full) {
+      $('idle').innerHTML = '<div class="lv-idle-eyebrow">Full house</div><h2>So many of you</h2><p>The stream is full right now. Try again in a few minutes.</p>';
+      $('idle').classList.remove('hidden');
+      return;
+    }
     viewerId = r.viewerId || null;
     joinedAt = Date.now();
   }
@@ -70,62 +82,43 @@
     await api('/live/signal', { method: 'POST', body: { viewer: viewerId, data: { sdp: pc.localDescription } } });
   }
 
+  // The piece being worn. Tapping it brings up the buy card over the stream.
   function showPinned(p) {
     const box = $('pinned');
-    if (!p) { pinnedId = null; box.classList.add('hidden'); return; }
-    if (p.id === pinnedId) return;
-    pinnedId = p.id;
+    if (!p) { pinned = null; box.classList.add('hidden'); return; }
+    if (pinned && p.id === pinned.id && p.in_stock === pinned.in_stock) return;
+    pinned = p;
     box.classList.remove('hidden');
     box.innerHTML = `
-      <a class="frame" href="/product?id=${p.id}" target="_blank">${art(p)}</a>
-      <div>
-        <div class="eyebrow" style="font-size:9px">Wearing now</div>
-        <div class="name">${esc(p.name)}</div>
-        <div class="small muted">${money(p.price_cents)}</div>
-        ${p.in_stock ? `<div class="row">
-          ${p.sizes.length > 1 ? `<select id="pin-size" aria-label="Size"><option value="">Size</option>${p.sizes.map((s) => `<option>${esc(s)}</option>`).join('')}</select>` : ''}
-          ${(p.colours || []).length > 1 ? `<select id="pin-colour" aria-label="Colour"><option value="">Colour</option>${p.colours.map((c) => `<option>${esc(c)}</option>`).join('')}</select>` : ''}
-          <button class="btn" id="pin-add">Add to bag</button>
-        </div><div class="small" id="pin-note" style="margin-top:6px"></div>` : '<div class="small" style="margin-top:6px">Sold out</div>'}
-      </div>`;
-    // keep the floating chat just above the card, whatever its height
-    requestAnimationFrame(() => theater.style.setProperty('--pin-h', `${box.offsetHeight}px`));
-    $('pin-add')?.addEventListener('click', () => {
-      const size = p.sizes.length > 1 ? $('pin-size').value : (p.sizes[0] || '');
-      const colours = p.colours || [];
-      const colour = colours.length > 1 ? $('pin-colour').value : (colours[0] || '');
-      if (p.sizes.length > 1 && !size) { $('pin-note').textContent = 'Choose a size'; return; }
-      if (colours.length > 1 && !colour) { $('pin-note').textContent = 'Choose a colour'; return; }
-      Store.addToBag(p, size, 1, colour);
-      $('pin-note').innerHTML = 'Added. <button class="text-btn" data-open="bag">View bag</button>';
-    });
+      <span class="lv-pinned-pic">${art(p)}</span>
+      <span class="lv-pinned-text"><small>Wearing now</small><b>${esc(p.name)}</b><small>${money(p.price_cents)}</small></span>
+      <span class="lv-pinned-btn">${p.in_stock ? 'Add to bag' : 'Sold out'}</span>`;
   }
+  $('pinned').addEventListener('click', () => {
+    if (pinned && pinned.in_stock) BuyCard.open({ ...pinned, colours: pinned.colours || [], images: pinned.images || [] });
+  });
 
   function addChat(m) {
     const log = $('log');
-    if (!log.querySelector('[data-msg]')) log.innerHTML = '';
     const row = document.createElement('div');
-    row.dataset.msg = '';
     if (m.seller) row.className = 'seller';
-    row.innerHTML = m.name ? `<b>${esc(m.name)}</b>${esc(m.text)}` : `<span style="opacity:.6">${esc(m.text)}</span>`;
-    const atBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 60;
+    if (!m.name) row.className = 'note';
+    row.innerHTML = m.name ? `<b>${esc(m.name)}</b> ${esc(m.text)}` : esc(m.text);
     log.append(row);
-    if (atBottom) log.scrollTop = log.scrollHeight;
+    while (log.children.length > 60) log.firstChild.remove();
+    log.scrollTop = log.scrollHeight;
   }
 
   function setLive(st) {
-    theater.classList.toggle('is-live', !!st.live);
-    $('lt-title').textContent = st.live ? st.title : 'Live try-ons';
-    $('idle').classList.toggle('hidden', st.live);
-    $('badge').classList.toggle('hidden', !st.live);
+    lv.classList.toggle('is-live', !!st.live);
+    $('idle').classList.toggle('hidden', !!st.live);
+    $('count').classList.toggle('hidden', !st.live);
     if (st.live) {
-      $('count').textContent = `${st.viewers} watching`;
-      $('title').textContent = st.title;
-      $('sub').innerHTML = '<span class="live-dot"></span>On air now';
+      $('count').innerHTML = `${ic('<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/>')}<span>${st.viewers}</span>`;
+      $('lv-state').innerHTML = `<i class="lv-dot"></i>LIVE${st.title ? ` · ${esc(st.title)}` : ''}`;
       showPinned(st.pinned);
     } else {
-      $('sub').textContent = 'Live shopping';
-      $('title').textContent = 'Watch, ask, and buy as we try things on';
+      $('lv-state').textContent = 'Off air';
       showPinned(null);
     }
   }
@@ -139,9 +132,9 @@
       setLive(st);
       if (!st.live) {
         if (wasLive) {
-          addChat({ text: 'The stream has ended. Thank you for watching.' });
           $('idle').querySelector('h2').textContent = 'Thanks for watching';
           $('idle').querySelector('p').textContent = 'The stream has ended. Everything we showed is in the shop, and the next session will start here by itself.';
+          $('log').innerHTML = '';
         }
         wasLive = false; session = null; viewerId = null;
         dropVideo();
@@ -165,19 +158,42 @@
     $('unmute').classList.add('hidden');
   });
 
+  // Chat: ask for a name once, then just type.
   $('chat-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const text = $('text').value.trim();
-    if (!text) return;
+    if (!myName) {
+      const n = $('name').value.trim();
+      if (!n) {
+        $('lv-name-row').classList.remove('hidden');
+        $('name').focus();
+        if (!text) return;
+        return;
+      }
+      myName = n;
+      try { localStorage.setItem('store-chat-name', myName); } catch {}
+      $('lv-name-row').classList.add('hidden');
+    }
+    if (!text) { $('text').focus(); return; }
     if (!viewerId) { addChat({ text: 'Chat opens when we go live.' }); return; }
-    try { localStorage.setItem('store-chat-name', $('name').value.trim()); } catch {}
     $('text').value = '';
     try {
-      await api('/live/chat', { method: 'POST', body: { viewer: viewerId, name: $('name').value.trim(), text } });
+      await api('/live/chat', { method: 'POST', body: { viewer: viewerId, name: myName, text } });
     } catch (err) {
       addChat({ text: err.message });
       $('text').value = text;
     }
+  });
+  $('text').addEventListener('focus', () => { if (!myName) $('lv-name-row').classList.remove('hidden'); });
+
+  // Share the live with friends (WhatsApp and the like).
+  $('lv-share').addEventListener('click', async () => {
+    const url = `${location.origin}/live`;
+    const text = `${cfg.storeName} is live, come and watch: `;
+    if (navigator.share) {
+      try { await navigator.share({ title: cfg.storeName, text, url }); return; } catch (e) { if (e.name === 'AbortError') return; }
+    }
+    window.open(`https://wa.me/?text=${encodeURIComponent(text + url)}`, '_blank', 'noopener');
   });
 
   tick();

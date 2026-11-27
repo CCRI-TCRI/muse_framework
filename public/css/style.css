@@ -1025,3 +1025,78 @@ body.bc-open .buycard { transform: translateY(var(--drag)); }
 /* in-app page changes: the new page fades up under the header and menu, which stay put */
 body:not(.admin-body) > main, body:not(.admin-body) > .about-band { transition: opacity .22s ease; }
 body.page-in > main, body.page-in > .about-band { opacity: 0; transition: none; }
+
+/* =====================================================================
+   Viewer live page: full screen with everything floating on the video,
+   like a live streaming app (phones and computers)
+   ===================================================================== */
+body.live-page { background: #000; padding-bottom: 0 !important; overflow: hidden; }
+body.live-page .site-header, body.live-page .announce, body.live-page .bottom-nav, body.live-page .lens { display: none !important; }
+.lv { position: fixed; inset: 0; z-index: 10; background: #0b0b0c; color: #fff; overflow: hidden; padding: 0 !important; }
+.lv video { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #000; }
+@media (min-width: 861px) { .lv video { object-fit: contain; } }
+
+/* dark glass pieces */
+.lv-host, .lv-viewers, .lv-close, .lv-sound, .lv-log > div, .lv-say, .lv-tool, .lv-name input, .lv-pill:not(.light) {
+  background: rgba(20, 20, 22, .42); border: 1px solid rgba(255, 255, 255, .18); color: #fff;
+  -webkit-backdrop-filter: blur(14px) saturate(1.5); backdrop-filter: blur(14px) saturate(1.5);
+}
+
+.lv-top { position: absolute; z-index: 3; left: 12px; right: 12px; top: max(12px, env(safe-area-inset-top)); display: flex; justify-content: space-between; align-items: center; gap: 10px; }
+.lv-host { display: flex; align-items: center; gap: 9px; padding: 4px 14px 4px 4px; border-radius: 99px; min-width: 0; max-width: 72%; }
+.lv-avatar { width: 38px; height: 38px; border-radius: 50%; background: #fff; color: #111; display: grid; place-items: center; font-weight: 700; font-size: 13px; flex: none; }
+.lv-host-text { display: grid; line-height: 1.2; min-width: 0; }
+.lv-host-text b { font-size: 14px; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv-state { font-size: 12px; color: rgba(255, 255, 255, .8); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv.is-live .lv-state { color: #fff; font-weight: 600; }
+.lv-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #ff3b30; margin-right: 6px; vertical-align: 1px; animation: pulse 1.4s infinite; }
+.lv-top-right { display: flex; align-items: center; gap: 8px; flex: none; }
+.lv-viewers { height: 38px; padding: 0 12px; border-radius: 99px; display: flex; align-items: center; gap: 6px; font-size: 14px; font-weight: 600; }
+.lv-viewers svg, .lv-tool svg, .lv-send svg { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+.lv-viewers svg { width: 17px; height: 17px; }
+.lv-close { width: 38px; height: 38px; border-radius: 50%; font-size: 24px; line-height: 1; display: grid; place-items: center; }
+
+.lv-sound { position: absolute; z-index: 3; left: 50%; top: calc(max(12px, env(safe-area-inset-top)) + 56px); transform: translateX(-50%); height: 38px; padding: 0 16px; border-radius: 99px; font: 600 14px var(--font); cursor: pointer; }
+.lv-sound::before { content: '\1F507  '; }
+
+.lv-idle { position: absolute; z-index: 2; inset: 0; display: grid; place-content: center; justify-items: center; text-align: center; padding: 30px 26px; gap: 10px; max-width: 520px; margin: 0 auto; }
+.lv-idle-eyebrow { font-size: 13px; color: rgba(255, 255, 255, .6); }
+.lv-idle h2 { font-size: clamp(28px, 7vw, 40px); font-weight: 800; color: #fff; }
+.lv-idle p { color: rgba(255, 255, 255, .72); margin: 0 0 8px; }
+.lv-idle-actions { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+.lv-pill { height: 44px; padding: 0 20px; border-radius: 99px; display: inline-flex; align-items: center; font-weight: 600; font-size: 14px; }
+.lv-pill.light { background: #fff; color: #111; }
+
+/* bottom: the piece being worn, floating chat, and the action row */
+.lv-bottom { position: absolute; z-index: 4; left: 0; right: 0; bottom: 0; padding: 0 12px max(12px, env(safe-area-inset-bottom)); display: grid; gap: 10px; max-width: 640px; }
+.lv:not(.is-live) .lv-log, .lv:not(.is-live) .lv-pinned { display: none; }
+.lv-pinned { justify-self: start; display: flex; align-items: center; gap: 10px; padding: 6px; border-radius: 18px; background: rgba(255, 255, 255, .86); color: #111; border: 1px solid rgba(255, 255, 255, .9); box-shadow: 0 10px 30px rgba(0, 0, 0, .25); cursor: pointer; max-width: 92%; -webkit-backdrop-filter: blur(16px); backdrop-filter: blur(16px); }
+.lv-pinned-pic { width: 52px; height: 52px; border-radius: 12px; overflow: hidden; background: #eee; flex: none; }
+.lv-pinned-text { display: grid; line-height: 1.25; min-width: 0; }
+.lv-pinned-text b { font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lv-pinned-text small { font-size: 12px; color: #6b6b70; }
+.lv-pinned-text small:first-child { color: #ff3b30; font-weight: 600; font-size: 11px; }
+.lv-pinned-btn { flex: none; height: 36px; padding: 0 14px; border-radius: 99px; background: #111; color: #fff; display: grid; place-items: center; font-size: 13px; font-weight: 600; margin-left: 4px; }
+.lv-log { max-height: 32vh; overflow-y: auto; display: flex; flex-direction: column; align-items: flex-start; gap: 6px; scrollbar-width: none; width: min(86%, 460px); }
+.lv-log::-webkit-scrollbar { display: none; }
+.lv-log > div { padding: 8px 12px; border-radius: 14px; font-size: 14px; line-height: 1.4; max-width: 100%; }
+.lv-log > div b { font-weight: 600; color: #ffd60a; }
+.lv-log > div.seller b { color: #fff; }
+.lv-log > div.seller b::after { content: 'Shop'; margin-left: 6px; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 99px; background: #fff; color: #111; vertical-align: 1px; }
+.lv-log > div.note { color: rgba(255, 255, 255, .75); font-size: 13px; }
+
+.lv-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.lv-name { width: 100%; }
+.lv-name input { width: 100%; height: 44px; border-radius: 99px; padding: 0 16px; font-size: 15px; }
+.lv-say { flex: 1; min-width: 0; height: 48px; border-radius: 99px; display: flex; align-items: center; padding: 0 4px 0 16px; }
+.lv-say input, .lv-name input { background: transparent; border: 0; color: #fff; font-size: 15px; }
+.lv-say input { flex: 1; min-width: 0; padding: 0; height: 100%; }
+.lv-say input::placeholder, .lv-name input::placeholder { color: rgba(255, 255, 255, .7); }
+.lv-say input:focus, .lv-name input:focus { outline: none; }
+.lv-send { width: 40px; height: 40px; border-radius: 50%; border: 0; background: #fff; color: #111; display: grid; place-items: center; cursor: pointer; flex: none; }
+.lv-send svg { width: 18px; height: 18px; }
+.lv-tool { position: relative; width: 48px; height: 48px; border-radius: 50%; display: grid; place-items: center; cursor: pointer; flex: none; }
+.lv-tool svg { width: 22px; height: 22px; }
+.lv-count { position: absolute; top: -3px; right: -3px; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 99px; background: #ff3b30; color: #fff; font-size: 10px; font-weight: 700; display: grid; place-items: center; }
+.lv-count:empty { display: none; }
+.lv:not(.is-live) .lv-say { opacity: .6; }
