@@ -138,43 +138,63 @@
 
       <!-- live studio -->
       <section data-panel="studio" class="hidden">
-        <div class="studio">
-          <div class="box">
-            <div class="stage">
-              <video id="preview" autoplay playsinline muted></video>
-              <div class="badge hidden" id="studio-badge"><span class="on-air">Live</span><span id="studio-count">0 watching</span></div>
-              <div class="idle" id="studio-idle">
-                <div class="eyebrow">Studio</div>
-                <h2>Camera is off</h2>
-                <p class="small" style="color:rgba(255,255,255,.7)">Turn it on to check your frame and light before going live.</p>
-              </div>
+        <!-- Full-screen studio, like a live streaming app -->
+        <div class="studio-fs" id="studio-fs">
+          <video id="preview" autoplay playsinline muted></video>
+          <div class="sf-shade-top"></div><div class="sf-shade-bottom"></div>
+
+          <div class="sf-top">
+            <div class="sf-host">
+              <span class="sf-avatar" data-initial></span>
+              <span class="sf-host-text"><b data-store-name></b><span id="studio-badge" class="sf-state">Preview</span></span>
             </div>
-            <div class="controls">
-              <button class="btn ghost sm" id="cam-on">Turn camera on</button>
-              <select id="cam-select" class="hidden"></select>
-              <button class="btn ghost sm hidden" id="mic-toggle">Mute mic</button>
-            </div>
-            <div class="form">
-              <label class="field"><span>Stream title</span><input id="stream-title" maxlength="100" placeholder="New dresses, tried on"></label>
-              <label class="check"><input type="checkbox" id="record" checked> Save a replay to Films when I end the stream</label>
-              <div class="note err hidden" id="studio-error"></div>
-              <div style="display:flex;gap:8px;flex-wrap:wrap">
-                <button class="btn live-btn" id="go-live" disabled>Go live</button>
-                <button class="btn danger hidden" id="end-live">End stream</button>
-              </div>
-              <div class="progress hidden" id="replay-progress"><div></div></div>
-              <label class="field"><span>Piece viewers can buy right now</span><select id="pin-select" data-product-select></select></label>
-              <p class="small muted">Viewers get an "Add to bag" button for this piece. Switch it as you try things on. Video goes straight from this device to each viewer, so use good wifi, and keep this page open and on screen while you're live.</p>
+            <div class="sf-top-right">
+              <span class="sf-viewers" id="studio-count" title="Watching now">0</span>
+              <button class="sf-close" id="studio-close" aria-label="Leave the studio">&times;</button>
             </div>
           </div>
-          <aside class="chat">
-            <div class="chat-head">Live chat</div>
-            <div class="log" id="studio-log"><div class="small muted">Messages from viewers show up here.</div></div>
-            <form id="studio-chat">
-              <input id="studio-text" placeholder="Reply as the shop" maxlength="300" autocomplete="off">
-              <button class="btn sm">Send</button>
+
+          <div class="sf-idle" id="studio-idle">
+            <h2>Turn on your camera</h2>
+            <p>Allow the camera and microphone when your phone asks.</p>
+            <button class="sf-btn-light" id="cam-on">Turn camera on</button>
+          </div>
+
+          <div class="sf-note hidden" id="studio-error"></div>
+
+          <!-- Before going live -->
+          <div class="sf-setup" id="sf-setup">
+            <input id="stream-title" maxlength="100" placeholder="Add a title, e.g. New dresses, tried on">
+            <button type="button" class="sf-row" id="sf-pick-open"><span>Piece to sell</span><b id="sf-pick-name">None</b></button>
+            <label class="sf-row sf-check"><span>Save a replay to Films</span><input type="checkbox" id="record" checked></label>
+            <button class="sf-golive" id="go-live" disabled>Go live</button>
+          </div>
+
+          <!-- While live -->
+          <div class="sf-live hidden" id="sf-live">
+            <div class="sf-pinned hidden" id="sf-pinned"></div>
+            <div class="sf-log" id="studio-log"></div>
+            <form class="sf-reply hidden" id="studio-chat">
+              <input id="studio-text" placeholder="Reply to your viewers" maxlength="300" autocomplete="off">
+              <button class="sf-send">Send</button>
             </form>
-          </aside>
+            <div class="sf-tools">
+              <button type="button" class="sf-tool" id="sf-chat-btn" aria-label="Reply in chat"></button>
+              <button type="button" class="sf-tool" id="sf-flip-btn" aria-label="Flip camera"></button>
+              <button type="button" class="sf-tool" id="mic-toggle" aria-label="Mute microphone"></button>
+              <button type="button" class="sf-tool" id="sf-pick-btn" aria-label="Choose the piece to sell"></button>
+              <button type="button" class="sf-tool sf-end" id="end-live" aria-label="End the stream"></button>
+            </div>
+          </div>
+          <div class="progress sf-progress hidden" id="replay-progress"><div></div></div>
+
+          <!-- Product picker -->
+          <div class="sf-sheet-scrim hidden" id="sf-sheet-scrim"></div>
+          <div class="sf-sheet" id="sf-sheet" aria-label="Choose the piece to sell">
+            <div class="sf-sheet-head"><b>Piece viewers can buy</b><button type="button" class="sf-close dark" id="sf-sheet-close" aria-label="Close">&times;</button></div>
+            <div class="sf-sheet-list" id="sf-sheet-list"></div>
+          </div>
+          <select id="pin-select" data-product-select hidden></select>
         </div>
       </section>
 

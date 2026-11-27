@@ -121,6 +121,7 @@ const Admin = (() => {
     $('quick-add').classList.toggle('hidden', tab === 'studio');
     LOADERS[tab]?.();
     window.scrollTo({ top: 0 });
+    document.dispatchEvent(new CustomEvent('admin:tab', { detail: tab }));
   }
   $('tabs').addEventListener('click', (e) => { const b = e.target.closest('[data-tab]'); if (b) go(b.dataset.tab); });
   document.addEventListener('click', (e) => {
